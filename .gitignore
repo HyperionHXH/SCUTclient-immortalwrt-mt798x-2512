@@ -1,0 +1,8 @@
+openwrt/
+artifacts/
+logs/
+*.7z
+*.tar
+*.tar.gz
+__pycache__/
+*.pyc

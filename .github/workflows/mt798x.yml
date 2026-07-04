@@ -1,0 +1,205 @@
+name: mt798x_25_12_CI
+run-name: MT798x 25.12 - ${{ inputs.build_profile || 'all' }}
+
+env:
+  REPO_URL: https://github.com/immortalwrt/immortalwrt.git
+  REPO_BRANCH: openwrt-25.12
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_profile:
+        description: Device profile to build
+        required: true
+        default: all
+        type: string
+      custom_profile:
+        description: Used only when build_profile is custom
+        required: false
+        type: string
+  pull_request:
+    branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-matrix:
+    runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare build matrix
+        id: matrix
+        env:
+          BUILD_PROFILE: ${{ inputs.build_profile || 'all' }}
+          CUSTOM_PROFILE: ${{ inputs.custom_profile }}
+        run: |
+          set -e -o pipefail
+          selected="$BUILD_PROFILE"
+          if [ "$selected" = "custom" ]; then
+            selected="$CUSTOM_PROFILE"
+            if [ -z "$selected" ]; then
+              echo "custom_profile is required when build_profile=custom" >&2
+              exit 1
+            fi
+          fi
+
+          if [ "$selected" = "all" ]; then
+            awk -F'|' '
+              /^[[:space:]]*$/ || /^[[:space:]]*#/ { next }
+              {
+                gsub(/^[ \t]+|[ \t]+$/, "", $1)
+                gsub(/^[ \t]+|[ \t]+$/, "", $2)
+                printf "%s%s", sep, "{\"profile\":\"" $1 "\",\"artifact_subdir\":\"" $2 "\"}"
+                sep=","
+              }
+              END { printf "\n" }
+            ' profiles.conf > matrix-items.txt
+          else
+            artifact_subdir="$(awk -F'|' -v p="$selected" '
+              /^[[:space:]]*$/ || /^[[:space:]]*#/ { next }
+              {
+                gsub(/^[ \t]+|[ \t]+$/, "", $1)
+                gsub(/^[ \t]+|[ \t]+$/, "", $2)
+                if ($1 == p) { print $2; found=1 }
+              }
+              END { if (!found) exit 1 }
+            ' profiles.conf || true)"
+            artifact_subdir="${artifact_subdir:-mediatek/filogic}"
+            printf '{"profile":"%s","artifact_subdir":"%s"}\n' "$selected" "$artifact_subdir" > matrix-items.txt
+          fi
+
+          matrix="$(printf '{"include":[%s]}' "$(cat matrix-items.txt)")"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "$matrix"
+
+  build:
+    needs: prepare-matrix
+    runs-on: ubuntu-22.04
+    timeout-minutes: 355
+
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare-matrix.outputs.matrix) }}
+
+    env:
+      PROFILE: ${{ matrix.profile }}
+      ARTIFACT_SUBDIR: ${{ matrix.artifact_subdir }}
+      GOPROXY: https://goproxy.cn,direct
+
+    steps:
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@v10
+        with:
+          swap-size-mb: 512
+          temp-reserve-mb: 1
+          root-reserve-mb: 8192
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Init build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt clean
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo apt update -y
+          sudo apt install -y --no-install-recommends ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential \
+          bzip2 ccache clang cmake cpio curl device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib \
+          g++-multilib git gperf haveged help2man intltool lib32gcc-s1 libc6-dev-i386 libelf-dev libglib2.0-dev \
+          libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev libncurses5-dev libncursesw5 libncursesw5-dev libreadline-dev \
+          libssl-dev libtool lld lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch pkgconf \
+          python3 python3-pip python3-ply python3-docutils qemu-utils re2c rsync scons squashfs-tools subversion swig \
+          texinfo uglifyjs upx-ucl unzip vim wget xmlto xxd zlib1g-dev
+          sudo apt clean
+          sudo rm -rf /var/lib/apt/lists/*
+
+      - name: Prepare
+        run: |
+          set -e -o pipefail
+          build_date="$(date +%Y%m%d)"
+          image_prefix="immortalwrt-25.12-${PROFILE}"
+          echo "image_name=${image_prefix}-${build_date}" >> "$GITHUB_ENV"
+          echo "release_tag=${image_prefix}-${build_date}" >> "$GITHUB_ENV"
+
+          git clone --depth=1 -b "$REPO_BRANCH" "$REPO_URL" openwrt
+
+          cd openwrt
+          bash ../01_prepare.sh
+          bash ../05_validate_profile.sh "$PROFILE"
+          bash ../04_make_profile_config.sh "$PROFILE" .config
+          bash ../02_add_package.sh
+          make defconfig
+          bash ../06_validate_target_config.sh "$PROFILE"
+          bash ../03_validate_packages.sh
+
+      - name: Cache downloads
+        uses: actions/cache@v4
+        with:
+          path: openwrt/dl
+          key: ${{ runner.os }}-${{ env.REPO_BRANCH }}-dl-${{ hashFiles('package.conf', '01_prepare.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.REPO_BRANCH }}-dl-
+
+      - name: Make Download
+        run: |
+          cd openwrt
+          for attempt in 1 2 3; do
+            echo "Download attempt ${attempt}/3"
+            if timeout 45m make download -j4; then
+              exit 0
+            fi
+            sleep 30
+          done
+          timeout 30m make download -j1 V=s
+
+      - name: Compile
+        run: |
+          cd openwrt
+          timeout 4h make -j"$(nproc)" || {
+            echo "Parallel compile failed or timed out, retrying serial build..."
+            timeout 90m make -j1 V=s
+          }
+
+      - name: Package
+        run: |
+          set -e -o pipefail
+          rm -rf artifact
+          mkdir -p artifact
+          find "openwrt/bin/targets/${ARTIFACT_SUBDIR}" -maxdepth 2 -type f -printf '%p\n' | sort
+          mapfile -t images < <(find "openwrt/bin/targets/${ARTIFACT_SUBDIR}" -maxdepth 2 -type f \
+            \( -name '*squashfs*' -o -name '*factory*' -o -name '*sysupgrade*' -o -name '*preloader*' -o -name '*uboot*' -o -name '*bl31*' -o -name '*fip*' -o -name '*gpt*' \) | sort)
+          if [ "${#images[@]}" -eq 0 ]; then
+            echo "No firmware artifacts found under openwrt/bin/targets/${ARTIFACT_SUBDIR}" >&2
+            exit 1
+          fi
+          cp "${images[@]}" artifact/
+          cd artifact
+          7z a -t7z -m0=lzma2 -mx=9 -md=256m -mfb=273 -ms=on -mmt=on -myx=9 "../${image_name}.7z" .
+
+      - name: Create release
+        if: github.event_name != 'pull_request'
+        uses: ncipollo/release-action@v1.16.0
+        with:
+          name: ${{ env.release_tag }}
+          allowUpdates: true
+          prerelease: false
+          tag: ${{ env.release_tag }}
+          commit: ${{ github.sha }}
+          makeLatest: false
+          artifactErrorsFailBuild: true
+          replacesArtifacts: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: ${{ env.image_name }}.7z
