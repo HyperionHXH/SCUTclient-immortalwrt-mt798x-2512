@@ -17,10 +17,6 @@ on:
         description: Used only when build_profile is custom
         required: false
         type: string
-  pull_request:
-    branches: [ "main" ]
-  push:
-    branches: [ "main" ]
 
 permissions:
   contents: write
