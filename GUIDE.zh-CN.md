@@ -47,9 +47,10 @@ profile|artifact-dir|description
 
 手动运行 workflow：`MT798x 25.12 手动编译`。
 
-- `build_profile=all`：编译 `profiles.conf` 里的所有 profile。
+- 默认 `build_profile=cmcc_rax3000m`：只编译已经本地验证过的 RAX3000M profile。
 - `build_profile=<profile>`：编译一个已列出的 profile。
 - `build_profile=custom` 加 `custom_profile=<profile>`：编译一个没列出、但官方源码存在的 profile。
+- `build_profile=all`：编译 `profiles.conf` 里的所有 profile；当前会展开 30 个完整编译 job，耗时会很长。
 
 确保仓库设置中启用了：
 

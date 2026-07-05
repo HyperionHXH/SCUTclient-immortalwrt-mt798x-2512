@@ -11,7 +11,7 @@ on:
       build_profile:
         description: 要编译的设备 profile
         required: true
-        default: all
+        default: cmcc_rax3000m
         type: string
       custom_profile:
         description: 仅在 build_profile 为 custom 时使用

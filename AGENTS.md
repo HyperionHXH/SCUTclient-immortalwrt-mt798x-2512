@@ -24,7 +24,7 @@
 
 ## 编译策略
 
-当前策略是：GitHub Actions 手动编译为主，本地 WSL 只作为排错和复现参考。
+当前策略是：GitHub Actions 手动编译为主，本地 WSL 只作为排错和复现参考。workflow 默认只编译 `cmcc_rax3000m`；只有明确输入 `all` 时，才会展开 `profiles.conf` 里的全部 30 个 profile。
 
 workflow 必须保持手动触发，不允许添加自动 `push` 触发。
 

@@ -26,9 +26,10 @@
 
 点 **Run workflow** 后可以选择：
 
-- `build_profile=all`：编译 `profiles.conf` 里的所有 profile。
+- 默认 `build_profile=cmcc_rax3000m`：只编译已经本地验证过的 RAX3000M profile。
 - `build_profile=<profile>`：只编译某个已列出的 profile，例如 `cmcc_rax3000m`。
 - `build_profile=custom` 并填写 `custom_profile=<profile>`：编译一个没写进 `profiles.conf`、但官方源码里存在的 profile。
+- `build_profile=all`：编译 `profiles.conf` 里的所有 profile；当前会展开 30 个完整编译 job，耗时会很长。
 
 Actions 只有 `workflow_dispatch`，不会因为 push 自动开始编译。
 
