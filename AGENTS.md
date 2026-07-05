@@ -24,7 +24,7 @@
 
 ## 编译策略
 
-当前策略是：GitHub Actions 手动编译为主，本地 WSL 只作为排错和复现参考。workflow 默认只编译 `cmcc_rax3000m`；只有明确输入 `all` 时，才会展开 `profiles.conf` 里的全部 30 个 profile。
+当前策略是：GitHub Actions 手动编译为主，本地 WSL 只作为排错和复现参考。workflow 默认编译 `mt7981-ax3000` 分组；只有明确输入 `all` 时，才会展开 `profile_groups.conf` 里的全部 3 个分组。
 
 workflow 必须保持手动触发，不允许添加自动 `push` 触发。
 
@@ -52,6 +52,14 @@ profile|artifact-dir|description
 ```
 
 `profile` 必须匹配 `target/linux/mediatek/image/filogic.mk` 里的 `define Device/<profile>`。
+
+编译分组写在 `profile_groups.conf`，格式是：
+
+```text
+group|artifact-dir|profiles|description
+```
+
+组内 `profiles` 使用空格分隔，并通过 OpenWrt multi-profile 一次构建，避免每台设备重复编译同一套工具链。
 
 ## 插件列表
 

@@ -41,16 +41,19 @@ profile|artifact-dir|description
 
 `profile` 必须匹配官方源码 `target/linux/mediatek/image/filogic.mk` 里的 `define Device/<profile>`。
 
+`profile_groups.conf` 用来把多个 profile 合成一个编译组。组内 profile 会在同一个 OpenWrt multi-profile 构建里一起编译，避免每台设备重复编译一遍工具链。
+
 ## GitHub Actions
 
 现在以 GitHub Actions 手动编译为主，本地 WSL 只用于排错和复现。
 
 手动运行 workflow：`MT798x 25.12 手动编译`。
 
-- 默认 `build_profile=cmcc_rax3000m`：只编译已经本地验证过的 RAX3000M profile。
-- `build_profile=<profile>`：编译一个已列出的 profile。
-- `build_profile=custom` 加 `custom_profile=<profile>`：编译一个没列出、但官方源码存在的 profile。
-- `build_profile=all`：编译 `profiles.conf` 里的所有 profile；当前会展开 30 个完整编译 job，耗时会很长。
+- 默认 `build_target=mt7981-ax3000`：编译 MT7981 / AX3000 这一组设备。
+- `build_target=<group>`：编译 `profile_groups.conf` 里的某个分组。
+- `build_target=<profile>`：只编译一个已列出的 profile。
+- `build_target=custom` 加 `custom_profile=<profile>`：编译一个没列出、但官方源码存在的 profile。
+- `build_target=all`：编译 `profile_groups.conf` 里的全部 3 个分组。
 
 确保仓库设置中启用了：
 
@@ -70,10 +73,16 @@ git clone --depth=1 -b openwrt-25.12 https://github.com/immortalwrt/immortalwrt.
 bash build_all.sh
 ```
 
+只编译一个分组：
+
+```bash
+BUILD_TARGET=mt7981-ax3000 bash build_all.sh
+```
+
 只编译一个 profile：
 
 ```bash
-BUILD_PROFILE=cmcc_rax3000m bash build_all.sh
+BUILD_TARGET=cmcc_rax3000m bash build_all.sh
 ```
 
 ## 已知 25.12 修复

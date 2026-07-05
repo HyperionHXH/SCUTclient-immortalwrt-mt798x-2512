@@ -12,6 +12,7 @@
 ## 文件说明
 
 - `profiles.conf`：要编译的设备 profile 列表。
+- `profile_groups.conf`：按平台/档位合并的编译组，GitHub Actions 默认按这个分组编译。
 - `package.conf`：额外插件和 LuCI 应用列表。
 - `01_prepare.sh`：刷新 feeds，并加入 23.05 自用固件也用到的第三方包。
 - `04_make_profile_config.sh`：为单个 `mediatek/filogic` profile 生成 `.config`。
@@ -26,10 +27,11 @@
 
 点 **Run workflow** 后可以选择：
 
-- 默认 `build_profile=cmcc_rax3000m`：只编译已经本地验证过的 RAX3000M profile。
-- `build_profile=<profile>`：只编译某个已列出的 profile，例如 `cmcc_rax3000m`。
-- `build_profile=custom` 并填写 `custom_profile=<profile>`：编译一个没写进 `profiles.conf`、但官方源码里存在的 profile。
-- `build_profile=all`：编译 `profiles.conf` 里的所有 profile；当前会展开 30 个完整编译 job，耗时会很长。
+- 默认 `build_target=mt7981-ax3000`：编译 MT7981 / AX3000 这一组设备，共用同一套工具链。
+- `build_target=<group>`：编译 `profile_groups.conf` 里的某个分组，例如 `mt7986-ax6000`。
+- `build_target=<profile>`：只编译某个已列出的单独 profile，例如 `cmcc_rax3000m`。
+- `build_target=custom` 并填写 `custom_profile=<profile>`：编译一个没写进 `profiles.conf`、但官方源码里存在的 profile。
+- `build_target=all`：编译 `profile_groups.conf` 里的所有分组；当前只展开 3 个分组 job，不再把 30 个设备拆成 30 个 job。
 
 Actions 只有 `workflow_dispatch`，不会因为 push 自动开始编译。
 
@@ -48,10 +50,16 @@ git clone --depth=1 -b openwrt-25.12 https://github.com/immortalwrt/immortalwrt.
 bash build_all.sh
 ```
 
+只编译一个分组：
+
+```bash
+BUILD_TARGET=mt7981-ax3000 bash build_all.sh
+```
+
 只编译一个 profile：
 
 ```bash
-BUILD_PROFILE=xiaomi_mi-router-ax3000t bash build_all.sh
+BUILD_TARGET=cmcc_rax3000m bash build_all.sh
 ```
 
 本地默认编译线程是 `JOBS=2`。第一次 WSL 测试用 `JOBS=8` 时，host LLVM/Clang 编译阶段触发内核 OOM，`cc1plus` 被杀掉；除非 host LLVM 已经缓存好，或者 WSL 内存已经调大，否则不要盲目提高 `JOBS`。

@@ -1,5 +1,5 @@
 name: MT798x 25.12 手动编译
-run-name: MT798x 25.12 - ${{ inputs.build_profile || 'all' }}
+run-name: MT798x 25.12 - ${{ inputs.build_target || 'mt7981-ax3000' }}
 
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
@@ -8,13 +8,13 @@ env:
 on:
   workflow_dispatch:
     inputs:
-      build_profile:
-        description: 要编译的设备 profile
+      build_target:
+        description: 要编译的分组或设备 profile
         required: true
-        default: cmcc_rax3000m
+        default: mt7981-ax3000
         type: string
       custom_profile:
-        description: 仅在 build_profile 为 custom 时使用
+        description: 仅在 build_target 为 custom 时使用
         required: false
         type: string
 
@@ -33,15 +33,15 @@ jobs:
       - name: 生成编译矩阵
         id: matrix
         env:
-          BUILD_PROFILE: ${{ inputs.build_profile || 'all' }}
+          BUILD_TARGET: ${{ inputs.build_target || 'mt7981-ax3000' }}
           CUSTOM_PROFILE: ${{ inputs.custom_profile }}
         run: |
           set -e -o pipefail
-          selected="$BUILD_PROFILE"
+          selected="$BUILD_TARGET"
           if [ "$selected" = "custom" ]; then
             selected="$CUSTOM_PROFILE"
             if [ -z "$selected" ]; then
-              echo "build_profile=custom 时必须填写 custom_profile" >&2
+              echo "build_target=custom 时必须填写 custom_profile" >&2
               exit 1
             fi
           fi
@@ -52,23 +52,41 @@ jobs:
               {
                 gsub(/^[ \t]+|[ \t]+$/, "", $1)
                 gsub(/^[ \t]+|[ \t]+$/, "", $2)
-                printf "%s%s", sep, "{\"profile\":\"" $1 "\",\"artifact_subdir\":\"" $2 "\"}"
+                gsub(/^[ \t]+|[ \t]+$/, "", $3)
+                printf "%s%s", sep, "{\"target\":\"" $1 "\",\"artifact_subdir\":\"" $2 "\",\"profiles\":\"" $3 "\"}"
                 sep=","
               }
               END { printf "\n" }
-            ' profiles.conf > matrix-items.txt
+            ' profile_groups.conf > matrix-items.txt
           else
-            artifact_subdir="$(awk -F'|' -v p="$selected" '
+            group_line="$(awk -F'|' -v p="$selected" '
               /^[[:space:]]*$/ || /^[[:space:]]*#/ { next }
               {
                 gsub(/^[ \t]+|[ \t]+$/, "", $1)
                 gsub(/^[ \t]+|[ \t]+$/, "", $2)
-                if ($1 == p) { print $2; found=1 }
+                gsub(/^[ \t]+|[ \t]+$/, "", $3)
+                if ($1 == p) { print $1 "|" $2 "|" $3; found=1 }
               }
               END { if (!found) exit 1 }
-            ' profiles.conf || true)"
-            artifact_subdir="${artifact_subdir:-mediatek/filogic}"
-            printf '{"profile":"%s","artifact_subdir":"%s"}\n' "$selected" "$artifact_subdir" > matrix-items.txt
+            ' profile_groups.conf || true)"
+            if [ -n "$group_line" ]; then
+              target="$(printf '%s' "$group_line" | cut -d'|' -f1)"
+              artifact_subdir="$(printf '%s' "$group_line" | cut -d'|' -f2)"
+              profiles="$(printf '%s' "$group_line" | cut -d'|' -f3)"
+              printf '{"target":"%s","artifact_subdir":"%s","profiles":"%s"}\n' "$target" "$artifact_subdir" "$profiles" > matrix-items.txt
+            else
+              artifact_subdir="$(awk -F'|' -v p="$selected" '
+                /^[[:space:]]*$/ || /^[[:space:]]*#/ { next }
+                {
+                  gsub(/^[ \t]+|[ \t]+$/, "", $1)
+                  gsub(/^[ \t]+|[ \t]+$/, "", $2)
+                  if ($1 == p) { print $2; found=1 }
+                }
+                END { if (!found) exit 1 }
+              ' profiles.conf || true)"
+              artifact_subdir="${artifact_subdir:-mediatek/filogic}"
+              printf '{"target":"%s","artifact_subdir":"%s","profiles":"%s"}\n' "$selected" "$artifact_subdir" "$selected" > matrix-items.txt
+            fi
           fi
 
           matrix="$(printf '{"include":[%s]}' "$(cat matrix-items.txt)")"
@@ -85,7 +103,8 @@ jobs:
       matrix: ${{ fromJSON(needs.prepare-matrix.outputs.matrix) }}
 
     env:
-      PROFILE: ${{ matrix.profile }}
+      BUILD_TARGET: ${{ matrix.target }}
+      PROFILES: ${{ matrix.profiles }}
       ARTIFACT_SUBDIR: ${{ matrix.artifact_subdir }}
       GOPROXY: https://goproxy.cn,direct
 
@@ -126,7 +145,7 @@ jobs:
         run: |
           set -e -o pipefail
           build_date="$(date +%Y%m%d)"
-          image_prefix="immortalwrt-25.12-${PROFILE}"
+          image_prefix="immortalwrt-25.12-${BUILD_TARGET}"
           echo "image_name=${image_prefix}-${build_date}" >> "$GITHUB_ENV"
           echo "release_tag=${image_prefix}-${build_date}" >> "$GITHUB_ENV"
 
@@ -134,11 +153,11 @@ jobs:
 
           cd openwrt
           bash ../01_prepare.sh
-          bash ../05_validate_profile.sh "$PROFILE"
-          bash ../04_make_profile_config.sh "$PROFILE" .config
+          bash ../05_validate_profile.sh "$PROFILES"
+          bash ../04_make_profile_config.sh "$PROFILES" .config
           bash ../02_add_package.sh
           make defconfig
-          bash ../06_validate_target_config.sh "$PROFILE"
+          bash ../06_validate_target_config.sh "$PROFILES"
           bash ../03_validate_packages.sh
 
       - name: 缓存下载目录
