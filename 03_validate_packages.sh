@@ -21,10 +21,10 @@ while IFS= read -r pkg || [ -n "$pkg" ]; do
 done < "$PACKAGE_CONF"
 
 if (( ${#missing[@]} > 0 )); then
-  echo "The following requested packages were not enabled after make defconfig:" >&2
+  echo "make defconfig 后，下面这些请求的包没有被启用：" >&2
   printf '  - %s\n' "${missing[@]}" >&2
-  echo "Check package names, branch support, and dependencies for ImmortalWrt 25.12." >&2
+  echo "请检查包名、ImmortalWrt 25.12 分支支持情况和依赖关系。" >&2
   exit 1
 fi
 
-echo "Validated $requested requested packages; all are enabled."
+echo "已验证 $requested 个请求的包，全部已启用。"

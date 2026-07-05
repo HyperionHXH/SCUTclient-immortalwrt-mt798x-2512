@@ -16,7 +16,7 @@ BUILD_PROFILE="${BUILD_PROFILE:-all}"
 
 clone_openwrt() {
   if [ -d "$OPENWRT_DIR/.git" ]; then
-    echo "Using existing source tree: $OPENWRT_DIR"
+    echo "使用已有源码树：$OPENWRT_DIR"
     return
   fi
 
@@ -26,20 +26,20 @@ clone_openwrt() {
 read_profiles() {
   awk -F'|' '
     /^[[:space:]]*$/ || /^[[:space:]]*#/ { next }
-    NF < 2 { printf("Invalid profiles.conf line: %s\n", $0) > "/dev/stderr"; exit 1 }
+    NF < 2 { printf("profiles.conf 行格式无效：%s\n", $0) > "/dev/stderr"; exit 1 }
     {
       gsub(/^[ \t]+|[ \t]+$/, "", $1)
       gsub(/^[ \t]+|[ \t]+$/, "", $2)
-      if ($1 == "" || $2 == "") { printf("Invalid profiles.conf line: %s\n", $0) > "/dev/stderr"; exit 1 }
+      if ($1 == "" || $2 == "") { printf("profiles.conf 行格式无效：%s\n", $0) > "/dev/stderr"; exit 1 }
       print $1 "|" $2
     }
   ' "$PROFILES_CONF"
 }
 
 echo "========================================="
-echo "  ImmortalWrt MT798x 25.12 Build"
-echo "  Source: $REPO_URL $REPO_BRANCH"
-echo "  Start:  $(date)"
+echo "  ImmortalWrt MT798x 25.12 编译"
+echo "  源码: $REPO_URL $REPO_BRANCH"
+echo "  开始时间: $(date)"
 echo "========================================="
 
 clone_openwrt
@@ -57,7 +57,7 @@ while IFS='|' read -r profile artifact_subdir; do
 
   echo ""
   echo "========== $profile =========="
-  echo "Start: $(date)"
+  echo "开始时间: $(date)"
 
   bash "$SCRIPT_DIR/05_validate_profile.sh" "$profile"
   bash "$SCRIPT_DIR/04_make_profile_config.sh" "$profile" .config
@@ -81,16 +81,16 @@ while IFS='|' read -r profile artifact_subdir; do
 
   count="$(find "$profile_artifact_dir" -type f | wc -l)"
   if [ "$count" -eq 0 ]; then
-    echo "No artifacts collected for $profile" >&2
+    echo "没有为 $profile 收集到产物" >&2
     exit 1
   fi
 
-  echo "Done $profile: $count files"
+  echo "完成 $profile：$count 个文件"
 done < <(read_profiles)
 
 echo ""
 echo "========================================="
-echo "  ALL DONE at $(date)"
+echo "  全部完成：$(date)"
 echo "========================================="
 find "$ARTIFACT_DIR" -mindepth 1 -maxdepth 2 -type f | sort
 du -sh "$ARTIFACT_DIR"

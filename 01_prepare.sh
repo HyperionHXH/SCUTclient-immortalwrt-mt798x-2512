@@ -83,7 +83,7 @@ rm -rf package/luci-app-tailscale
 
 if [ -f package/base-files/files/etc/rc.local ] && \
    ! grep -q 'scut_unicom/add_route.sh server_ip username password' package/base-files/files/etc/rc.local; then
-  sed -i '/^exit 0/i # If using Unicom accelerator, uncomment and fill in the following values\n#sleep 10 && /usr/share/scut_unicom/add_route.sh server_ip username password' \
+  sed -i '/^exit 0/i # 如果要使用联通加速，取消下一行注释并填好参数\n#sleep 10 && /usr/share/scut_unicom/add_route.sh server_ip username password' \
     package/base-files/files/etc/rc.local
 fi
 

@@ -15,12 +15,12 @@ while IFS= read -r pkg || [ -n "$pkg" ]; do
   [ -z "$pkg" ] && continue
 
   if [[ "$pkg" =~ [[:space:]] ]] || ! [[ "$pkg" =~ ^[A-Za-z0-9_.+@-]+$ ]]; then
-    echo "Invalid package.conf entry: '$pkg'" >&2
+    echo "package.conf 条目格式无效：'$pkg'" >&2
     exit 1
   fi
 
   if [[ -n "${seen[$pkg]:-}" ]]; then
-    echo "Duplicate package.conf entry: '$pkg'" >&2
+    echo "package.conf 条目重复：'$pkg'" >&2
     exit 1
   fi
   seen[$pkg]=1

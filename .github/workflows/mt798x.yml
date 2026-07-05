@@ -1,4 +1,4 @@
-name: mt798x_25_12_CI
+name: MT798x 25.12 手动编译
 run-name: MT798x 25.12 - ${{ inputs.build_profile || 'all' }}
 
 env:
@@ -9,12 +9,12 @@ on:
   workflow_dispatch:
     inputs:
       build_profile:
-        description: Device profile to build
+        description: 要编译的设备 profile
         required: true
         default: all
         type: string
       custom_profile:
-        description: Used only when build_profile is custom
+        description: 仅在 build_profile 为 custom 时使用
         required: false
         type: string
 
@@ -27,10 +27,10 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - name: Checkout
+      - name: 拉取本仓库
         uses: actions/checkout@v4
 
-      - name: Prepare build matrix
+      - name: 生成编译矩阵
         id: matrix
         env:
           BUILD_PROFILE: ${{ inputs.build_profile || 'all' }}
@@ -41,7 +41,7 @@ jobs:
           if [ "$selected" = "custom" ]; then
             selected="$CUSTOM_PROFILE"
             if [ -z "$selected" ]; then
-              echo "custom_profile is required when build_profile=custom" >&2
+              echo "build_profile=custom 时必须填写 custom_profile" >&2
               exit 1
             fi
           fi
@@ -90,7 +90,7 @@ jobs:
       GOPROXY: https://goproxy.cn,direct
 
     steps:
-      - name: Maximize build space
+      - name: 释放 GitHub Runner 编译空间
         uses: easimon/maximize-build-space@v10
         with:
           swap-size-mb: 512
@@ -102,10 +102,10 @@ jobs:
           remove-codeql: 'true'
           remove-docker-images: 'true'
 
-      - name: Checkout
+      - name: 拉取本仓库
         uses: actions/checkout@v4
 
-      - name: Init build dependencies
+      - name: 安装编译依赖
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -122,7 +122,7 @@ jobs:
           sudo apt clean
           sudo rm -rf /var/lib/apt/lists/*
 
-      - name: Prepare
+      - name: 准备源码和配置
         run: |
           set -e -o pipefail
           build_date="$(date +%Y%m%d)"
@@ -141,7 +141,7 @@ jobs:
           bash ../06_validate_target_config.sh "$PROFILE"
           bash ../03_validate_packages.sh
 
-      - name: Cache downloads
+      - name: 缓存下载目录
         uses: actions/cache@v4
         with:
           path: openwrt/dl
@@ -149,11 +149,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ env.REPO_BRANCH }}-dl-
 
-      - name: Make Download
+      - name: 下载源码包
         run: |
           cd openwrt
           for attempt in 1 2 3; do
-            echo "Download attempt ${attempt}/3"
+            echo "第 ${attempt}/3 次下载尝试"
             if timeout 45m make download -j4; then
               exit 0
             fi
@@ -161,15 +161,15 @@ jobs:
           done
           timeout 30m make download -j1 V=s
 
-      - name: Compile
+      - name: 编译固件
         run: |
           cd openwrt
           timeout 4h make -j"$(nproc)" || {
-            echo "Parallel compile failed or timed out, retrying serial build..."
+            echo "并行编译失败或超时，改用单线程详细日志重试..."
             timeout 90m make -j1 V=s
           }
 
-      - name: Package
+      - name: 打包固件
         run: |
           set -e -o pipefail
           rm -rf artifact
@@ -178,7 +178,7 @@ jobs:
           mapfile -t images < <(find "openwrt/bin/targets/${ARTIFACT_SUBDIR}" -maxdepth 1 -type f \
             \( -name '*initramfs*' -o -name '*squashfs*' -o -name '*factory*' -o -name '*sysupgrade*' -o -name '*preloader*' -o -name '*bl31*' -o -name '*fip*' -o -name '*gpt*' -o -name '*.manifest' \) | sort)
           if [ "${#images[@]}" -eq 0 ]; then
-            echo "No firmware artifacts found under openwrt/bin/targets/${ARTIFACT_SUBDIR}" >&2
+            echo "在 openwrt/bin/targets/${ARTIFACT_SUBDIR} 下没有找到固件产物" >&2
             exit 1
           fi
           cp "${images[@]}" artifact/
@@ -186,7 +186,7 @@ jobs:
           find . -maxdepth 1 -type f ! -name sha256sums -printf '%P\0' | sort -z | xargs -0 sha256sum > sha256sums
           7z a -t7z -m0=lzma2 -mx=9 -md=256m -mfb=273 -ms=on -mmt=on -myx=9 "../${image_name}.7z" .
 
-      - name: Create release
+      - name: 创建 Release
         if: github.event_name != 'pull_request'
         uses: ncipollo/release-action@v1.16.0
         with:

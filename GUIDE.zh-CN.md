@@ -1,49 +1,67 @@
-# ImmortalWrt MT798x 25.12 Build Guide
+# ImmortalWrt MT798x 25.12 编译指南
 
-## Status
+## 当前状态
 
-Checked on 2026-07-05 in WSL:
+2026-07-05 在 WSL 检查过：
 
-- `cmcc_rax3000m` passed `make defconfig`.
-- `06_validate_target_config.sh` confirmed the requested profile stayed selected.
-- `03_validate_packages.sh` confirmed all 33 requested packages are enabled.
-- Direct `make -j1 V=s` completed successfully for `cmcc_rax3000m`.
-- `BUILD_PROFILE=cmcc_rax3000m JOBS=2 DOWNLOAD_JOBS=8 bash build_all.sh` completed successfully and collected artifacts under `/home/miunah/my_project/mt798x_build_2512/artifacts/cmcc_rax3000m`.
-- Real-device flashing is still pending.
+- `cmcc_rax3000m` 通过 `make defconfig`。
+- `06_validate_target_config.sh` 确认指定 profile 仍然被选中。
+- `03_validate_packages.sh` 确认请求的 33 个包都已启用。
+- `cmcc_rax3000m` 的直接 `make -j1 V=s` 编译完成。
+- `BUILD_PROFILE=cmcc_rax3000m JOBS=2 DOWNLOAD_JOBS=8 bash build_all.sh` 编译完成，并把产物收集到 `/home/miunah/my_project/mt798x_build_2512/artifacts/cmcc_rax3000m`。
+- 真实设备刷机仍未验证。
 
-## Source
+## 源码
 
-- Repository: `immortalwrt/immortalwrt`
-- Branch: `openwrt-25.12`
-- Target: `mediatek/filogic`
+- 源码仓库：`immortalwrt/immortalwrt`
+- 源码分支：`openwrt-25.12`
+- 编译目标：`mediatek/filogic`
 
-The verified 23.05 firmware used the `padavanonly/immortalwrt-mt798x-6.6` private MTK Wi-Fi route. That repository currently has no `openwrt-25.12` branch, so this 25.12 project uses official ImmortalWrt `mediatek/filogic` profiles instead.
+已验证的 23.05 固件使用 `padavanonly/immortalwrt-mt798x-6.6` 私有 MTK Wi-Fi 路线。这个仓库目前没有 `openwrt-25.12` 分支，所以 25.12 项目使用官方 ImmortalWrt `mediatek/filogic` profile。
 
-## Packages
+## 插件
 
-Edit `package.conf`, one package name per line. Do not include `CONFIG_PACKAGE_` or `=y`.
+编辑 `package.conf`，每行写一个包名。不要写 `CONFIG_PACKAGE_` 前缀，也不要写 `=y`。
 
-25.12 package-name differences from 23.05:
+25.12 相比 23.05 的包名差异：
 
-- WireGuard LuCI support is `luci-proto-wireguard`.
-- Socat is selected as `socat`.
-- Passwall 26.7.1 has no separate `luci-app-passwall_INCLUDE_tuic_client`; TUIC is handled through Sing-Box support.
+- WireGuard 的 LuCI 支持是 `luci-proto-wireguard`。
+- Socat 直接选择 `socat`。
+- Passwall 26.7.1 没有单独的 `luci-app-passwall_INCLUDE_tuic_client`，TUIC 通过 Sing-Box 支持处理。
 
-## Profiles
+## 设备 Profile
 
-Edit `profiles.conf`.
+编辑 `profiles.conf`。
 
-Format:
+格式：
 
 ```text
 profile|artifact-dir|description
 ```
 
-The profile must match `define Device/<profile>` in official `target/linux/mediatek/image/filogic.mk`.
+`profile` 必须匹配官方源码 `target/linux/mediatek/image/filogic.mk` 里的 `define Device/<profile>`。
 
-## Local WSL Build
+## GitHub Actions
 
-Use the WSL filesystem, not `/mnt/c`, for full builds.
+现在以 GitHub Actions 手动编译为主，本地 WSL 只用于排错和复现。
+
+手动运行 workflow：`MT798x 25.12 手动编译`。
+
+- `build_profile=all`：编译 `profiles.conf` 里的所有 profile。
+- `build_profile=<profile>`：编译一个已列出的 profile。
+- `build_profile=custom` 加 `custom_profile=<profile>`：编译一个没列出、但官方源码存在的 profile。
+
+确保仓库设置中启用了：
+
+`Settings > Actions > General > Workflow permissions > Read and write permissions`
+
+否则 workflow 可能能编译，但不能创建 Release。
+
+workflow 只有 `workflow_dispatch`，不能因为 push 自动运行。
+
+## 本地 WSL 参考
+
+本地完整编译必须放在 WSL 文件系统里，不要放在 `/mnt/c`。现在不建议长期保留本地源码和缓存，下面命令只用于排错参考。
 
 ```bash
 cd /home/miunah/my_project/mt798x_build_2512
@@ -51,44 +69,30 @@ git clone --depth=1 -b openwrt-25.12 https://github.com/immortalwrt/immortalwrt.
 bash build_all.sh
 ```
 
-Build one profile:
+只编译一个 profile：
 
 ```bash
 BUILD_PROFILE=cmcc_rax3000m bash build_all.sh
 ```
 
-## GitHub Actions
+## 已知 25.12 修复
 
-Build locally in WSL first. GitHub Actions is kept as a later manual release template only; do not use it as the first validation path.
+- `scut-unicom`：上游日期格式 `PKG_RELEASE=YYYY-MM-DD` 不是合法 APK 版本，`01_prepare.sh` 会改写为 `PKG_VERSION=YYYYMMDD` 加 `PKG_RELEASE=1`。
+- `luci-app-openvpn-server`：自带重复的 `/etc/config/openvpn`，会和 `openvpn-openssl` 冲突；`01_prepare.sh` 会删除该文件，并通过 uci-defaults 初始化 `openvpn.myvpn`。
+- `tailscale`：使用官方 `luci-app-tailscale-community` 和官方 `tailscale`；不要再克隆旧的第三方 `luci-app-tailscale`。
 
-Run workflow `mt798x_25_12_CI` manually only after local WSL output has been reviewed.
+## Wi-Fi 说明
 
-- `build_profile=all`: build every profile in `profiles.conf`.
-- `build_profile=<profile>`: build one listed profile.
-- `build_profile=custom` plus `custom_profile=<profile>`: build one official profile not listed in `profiles.conf`.
+23.05 已验证源码事实：
 
-Enable `Settings > Actions > General > Workflow permissions > Read and write permissions` so the workflow can create Releases.
+- 保留 `/sbin/wifi`。
+- 使用 `kmod-mt_wifi`、`mtwifi-cfg`、`luci-app-mtwifi-cfg` 和 `wifi-dats`。
+- 不使用 `wifi-profile` 或 `luci-app-mtk`。
 
-The workflow has only `workflow_dispatch`; it must not auto-run on push.
+25.12 源码事实：
 
-## Known 25.12 Fixes
+- 官方 `mediatek/filogic` profile 会选择自己的无线包。
+- 本项目不删除 `/sbin/wifi`。
+- 本项目不启用旧的 `wifi-profile` 绕路方案。
 
-- `scut-unicom`: its upstream date-based `PKG_RELEASE=YYYY-MM-DD` is not a valid APK version. `01_prepare.sh` rewrites it to `PKG_VERSION=YYYYMMDD` plus `PKG_RELEASE=1`.
-- `luci-app-openvpn-server`: its duplicate `/etc/config/openvpn` conflicts with `openvpn-openssl`. `01_prepare.sh` removes that file and seeds `openvpn.myvpn` through uci-defaults.
-- `tailscale`: use official `luci-app-tailscale-community` and official `tailscale`; do not clone the old third-party `luci-app-tailscale`.
-
-## Wi-Fi Notes
-
-23.05 verified source facts:
-
-- Keep `/sbin/wifi`.
-- Use `kmod-mt_wifi`, `mtwifi-cfg`, `luci-app-mtwifi-cfg`, and `wifi-dats`.
-- Do not use `wifi-profile` or `luci-app-mtk`.
-
-25.12 source facts:
-
-- Official `mediatek/filogic` profiles select their own wireless packages.
-- This project does not delete `/sbin/wifi`.
-- This project does not enable the old `wifi-profile` workaround.
-
-Do not force the 23.05 private MTK Wi-Fi stack into 25.12 unless a 25.12-compatible source is added and validated.
+除非已经加入并验证 25.12 兼容的源码，否则不要把 23.05 私有 MTK Wi-Fi 栈强行塞进 25.12。

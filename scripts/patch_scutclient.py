@@ -5,7 +5,7 @@ import sys
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print("Usage: patch_scutclient.py <scutclient.lua>", file=sys.stderr)
+        print("用法：patch_scutclient.py <scutclient.lua>", file=sys.stderr)
         return 1
 
     path = pathlib.Path(sys.argv[1])

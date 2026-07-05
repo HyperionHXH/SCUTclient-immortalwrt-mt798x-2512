@@ -5,7 +5,7 @@ profile="${1:-}"
 config_file="${2:-.config}"
 
 if [ -z "$profile" ]; then
-  echo "Usage: $0 <device-profile> [config-file]" >&2
+  echo "用法：$0 <device-profile> [config-file]" >&2
   exit 1
 fi
 
