@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OPENWRT_DIR="${OPENWRT_DIR:-$SCRIPT_DIR/openwrt}"
 ARTIFACT_DIR="${ARTIFACT_DIR:-$SCRIPT_DIR/artifacts}"
 PROFILES_CONF="${PROFILES_CONF:-$SCRIPT_DIR/profiles.conf}"
-JOBS="${JOBS:-$(nproc)}"
+JOBS="${JOBS:-2}"
 DOWNLOAD_JOBS="${DOWNLOAD_JOBS:-8}"
 BUILD_PROFILE="${BUILD_PROFILE:-all}"
 
@@ -66,14 +66,18 @@ while IFS='|' read -r profile artifact_subdir; do
   bash "$SCRIPT_DIR/06_validate_target_config.sh" "$profile"
   bash "$SCRIPT_DIR/03_validate_packages.sh"
 
-  make download -j"$DOWNLOAD_JOBS" 2>&1 | tail -20
-  make -j"$JOBS" 2>&1 | tail -40
+  make download -j"$DOWNLOAD_JOBS"
+  make -j"$JOBS"
 
   profile_artifact_dir="$ARTIFACT_DIR/$profile"
   mkdir -p "$profile_artifact_dir"
-  find "bin/targets/$artifact_subdir" -maxdepth 2 -type f \
-    \( -name '*squashfs*' -o -name '*factory*' -o -name '*sysupgrade*' -o -name '*preloader*' -o -name '*uboot*' -o -name '*bl31*' -o -name '*fip*' -o -name '*gpt*' \) \
+  find "bin/targets/$artifact_subdir" -maxdepth 1 -type f \
+    \( -name '*initramfs*' -o -name '*squashfs*' -o -name '*factory*' -o -name '*sysupgrade*' -o -name '*preloader*' -o -name '*bl31*' -o -name '*fip*' -o -name '*gpt*' -o -name '*.manifest' \) \
     -exec cp -f {} "$profile_artifact_dir/" \;
+  (
+    cd "$profile_artifact_dir"
+    find . -maxdepth 1 -type f ! -name sha256sums -printf '%P\0' | sort -z | xargs -0 sha256sum > sha256sums
+  )
 
   count="$(find "$profile_artifact_dir" -type f | wc -l)"
   if [ "$count" -eq 0 ]; then

@@ -24,9 +24,60 @@ mkdir -p package/scut-unicom
 wget --tries=5 --timeout=30 \
   https://raw.githubusercontent.com/wykdg/route_script/master/scut-unicom/Makefile \
   -O package/scut-unicom/Makefile
+sed -i \
+  -e 's#^PKG_RELEASE:=$(shell date "+%Y-%m-%d")#PKG_VERSION:=$(shell date "+%Y%m%d")\nPKG_RELEASE:=1#' \
+  -e 's#^  VERSION:=$(PKG_RELEASE)#  VERSION:=$(PKG_VERSION)-r$(PKG_RELEASE)#' \
+  package/scut-unicom/Makefile
+
+openvpn_server_dir="feeds/luci/applications/luci-app-openvpn-server"
+if [ -d "$openvpn_server_dir" ]; then
+  rm -f "$openvpn_server_dir/root/etc/config/openvpn"
+  openvpn_defaults="$openvpn_server_dir/root/etc/uci-defaults/openvpn"
+  if [ -f "$openvpn_defaults" ] && ! grep -q "openvpn.myvpn=openvpn" "$openvpn_defaults"; then
+    tmp_file="$(mktemp)"
+    {
+      cat <<'EOF'
+if ! uci -q get openvpn.myvpn >/dev/null; then
+uci -q batch <<-'EOF_UCI' >/dev/null
+	set openvpn.myvpn=openvpn
+	set openvpn.myvpn.enabled='0'
+	set openvpn.myvpn.proto='tcp-server'
+	set openvpn.myvpn.port='1194'
+	set openvpn.myvpn.ddns='example.com'
+	set openvpn.myvpn.dev='tun'
+	set openvpn.myvpn.topology='subnet'
+	set openvpn.myvpn.server='10.8.0.0 255.255.255.0'
+	set openvpn.myvpn.comp_lzo='adaptive'
+	set openvpn.myvpn.ca='/etc/openvpn/pki/ca.crt'
+	set openvpn.myvpn.dh='/etc/openvpn/pki/dh.pem'
+	set openvpn.myvpn.cert='/etc/openvpn/pki/server.crt'
+	set openvpn.myvpn.key='/etc/openvpn/pki/server.key'
+	set openvpn.myvpn.persist_key='1'
+	set openvpn.myvpn.persist_tun='1'
+	set openvpn.myvpn.user='nobody'
+	set openvpn.myvpn.group='nogroup'
+	set openvpn.myvpn.max_clients='10'
+	set openvpn.myvpn.keepalive='10 120'
+	set openvpn.myvpn.verb='3'
+	set openvpn.myvpn.status='/var/log/openvpn_status.log'
+	set openvpn.myvpn.log='/tmp/openvpn.log'
+	add_list openvpn.myvpn.push='route 192.168.1.0 255.255.255.0'
+	add_list openvpn.myvpn.push='comp-lzo adaptive'
+	add_list openvpn.myvpn.push='redirect-gateway def1 bypass-dhcp'
+	add_list openvpn.myvpn.push='dhcp-option DNS 192.168.1.1'
+	commit openvpn
+EOF_UCI
+fi
+
+EOF
+      cat "$openvpn_defaults"
+    } > "$tmp_file"
+    cat "$tmp_file" > "$openvpn_defaults"
+    rm -f "$tmp_file"
+  fi
+fi
 
 rm -rf package/luci-app-tailscale
-git clone --depth=1 https://github.com/asvow/luci-app-tailscale.git package/luci-app-tailscale
 
 ./scripts/feeds install -a
 

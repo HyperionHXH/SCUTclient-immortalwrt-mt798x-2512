@@ -2,12 +2,14 @@
 
 ## Status
 
-Checked on 2026-07-04 in WSL:
+Checked on 2026-07-05 in WSL:
 
 - `cmcc_rax3000m` passed `make defconfig`.
 - `06_validate_target_config.sh` confirmed the requested profile stayed selected.
 - `03_validate_packages.sh` confirmed all 33 requested packages are enabled.
-- Full firmware compilation and real-device flashing are still pending.
+- Direct `make -j1 V=s` completed successfully for `cmcc_rax3000m`.
+- `BUILD_PROFILE=cmcc_rax3000m JOBS=2 DOWNLOAD_JOBS=8 bash build_all.sh` completed successfully and collected artifacts under `/home/miunah/my_project/mt798x_build_2512/artifacts/cmcc_rax3000m`.
+- Real-device flashing is still pending.
 
 ## Source
 
@@ -57,13 +59,23 @@ BUILD_PROFILE=cmcc_rax3000m bash build_all.sh
 
 ## GitHub Actions
 
-Run workflow `mt798x_25_12_CI`.
+Build locally in WSL first. GitHub Actions is kept as a later manual release template only; do not use it as the first validation path.
+
+Run workflow `mt798x_25_12_CI` manually only after local WSL output has been reviewed.
 
 - `build_profile=all`: build every profile in `profiles.conf`.
 - `build_profile=<profile>`: build one listed profile.
 - `build_profile=custom` plus `custom_profile=<profile>`: build one official profile not listed in `profiles.conf`.
 
 Enable `Settings > Actions > General > Workflow permissions > Read and write permissions` so the workflow can create Releases.
+
+The workflow has only `workflow_dispatch`; it must not auto-run on push.
+
+## Known 25.12 Fixes
+
+- `scut-unicom`: its upstream date-based `PKG_RELEASE=YYYY-MM-DD` is not a valid APK version. `01_prepare.sh` rewrites it to `PKG_VERSION=YYYYMMDD` plus `PKG_RELEASE=1`.
+- `luci-app-openvpn-server`: its duplicate `/etc/config/openvpn` conflicts with `openvpn-openssl`. `01_prepare.sh` removes that file and seeds `openvpn.myvpn` through uci-defaults.
+- `tailscale`: use official `luci-app-tailscale-community` and official `tailscale`; do not clone the old third-party `luci-app-tailscale`.
 
 ## Wi-Fi Notes
 
