@@ -104,7 +104,8 @@ while IFS='|' read -r target artifact_subdir profiles; do
   make -j"$JOBS"
 
   profile_artifact_dir="$ARTIFACT_DIR/$target"
-  mkdir -p "$profile_artifact_dir"
+  profile_install_dir="$ARTIFACT_DIR/$target-install"
+  mkdir -p "$profile_artifact_dir" "$profile_install_dir"
   find "bin/targets/$artifact_subdir" -maxdepth 1 -type f \
     \( -name '*factory*' -o -name '*sysupgrade*' -o -name '*.manifest' \) \
     -exec cp -f {} "$profile_artifact_dir/" \;
@@ -112,6 +113,23 @@ while IFS='|' read -r target artifact_subdir profiles; do
     cd "$profile_artifact_dir"
     find . -maxdepth 1 -type f ! -name sha256sums -printf '%P\0' | sort -z | xargs -0 sha256sum > sha256sums
   )
+
+  find "bin/targets/$artifact_subdir" -maxdepth 1 -type f \
+    \( -name '*initramfs*' -o -name '*recovery*' -o -name '*preloader*' -o -name '*bl31*' -o -name '*fip*' -o -name '*gpt*' \) \
+    -exec cp -f {} "$profile_install_dir/" \;
+  if find "$profile_install_dir" -maxdepth 1 -type f | grep -q .; then
+    cat > "$profile_install_dir/README-install.zh-CN.txt" <<'EOF'
+这个目录只用于新刷、救援或更换启动链。
+日常升级请使用普通目录里的 sysupgrade 文件，不要随便刷 preloader、FIP、GPT 或 recovery。
+刷写启动链前必须备份原厂分区，尤其是 Factory/factory 校准分区。
+EOF
+    (
+      cd "$profile_install_dir"
+      find . -maxdepth 1 -type f ! -name sha256sums -printf '%P\0' | sort -z | xargs -0 sha256sum > sha256sums
+    )
+  else
+    rmdir "$profile_install_dir"
+  fi
 
   count="$(find "$profile_artifact_dir" -type f | wc -l)"
   if [ "$count" -eq 0 ]; then

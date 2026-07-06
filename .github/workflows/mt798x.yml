@@ -191,19 +191,47 @@ jobs:
       - name: 打包固件
         run: |
           set -e -o pipefail
-          rm -rf artifact
-          mkdir -p artifact
-          find "openwrt/bin/targets/${ARTIFACT_SUBDIR}" -maxdepth 1 -type f -printf '%p\n' | sort
-          mapfile -t images < <(find "openwrt/bin/targets/${ARTIFACT_SUBDIR}" -maxdepth 1 -type f \
+          rm -rf artifact install-artifact
+          mkdir -p artifact install-artifact
+          target_dir="openwrt/bin/targets/${ARTIFACT_SUBDIR}"
+          find "$target_dir" -maxdepth 1 -type f -printf '%p\n' | sort
+
+          mapfile -t images < <(find "$target_dir" -maxdepth 1 -type f \
             \( -name '*factory*' -o -name '*sysupgrade*' -o -name '*.manifest' \) | sort)
           if [ "${#images[@]}" -eq 0 ]; then
             echo "在 openwrt/bin/targets/${ARTIFACT_SUBDIR} 下没有找到固件产物" >&2
             exit 1
           fi
           cp "${images[@]}" artifact/
-          cd artifact
-          find . -maxdepth 1 -type f ! -name sha256sums -printf '%P\0' | sort -z | xargs -0 sha256sum > sha256sums
-          7z a -t7z -m0=lzma2 -mx=9 -md=256m -mfb=273 -ms=on -mmt=on -myx=9 "../${image_name}.7z" .
+          (
+            cd artifact
+            find . -maxdepth 1 -type f ! -name sha256sums -printf '%P\0' | sort -z | xargs -0 sha256sum > sha256sums
+            7z a -t7z -m0=lzma2 -mx=9 -md=256m -mfb=273 -ms=on -mmt=on -myx=9 "../${image_name}.7z" .
+          )
+
+          release_artifacts="${image_name}.7z"
+          mapfile -t install_images < <(find "$target_dir" -maxdepth 1 -type f \
+            \( -name '*initramfs*' -o -name '*recovery*' -o -name '*preloader*' -o -name '*bl31*' -o -name '*fip*' -o -name '*gpt*' \) | sort)
+          if [ "${#install_images[@]}" -gt 0 ]; then
+            cp "${install_images[@]}" install-artifact/
+            cat > install-artifact/README-install.zh-CN.txt <<'EOF'
+这个包只用于新刷、救援或更换启动链。
+日常升级请使用普通包里的 sysupgrade 文件，不要随便刷 preloader、FIP、GPT 或 recovery。
+
+RAX3000M 需要先确认是 eMMC 版还是 NAND 版：
+- eMMC 版通常会用 emmc-gpt.bin、emmc-preloader.bin、emmc-bl31-uboot.fip、initramfs-recovery.itb，然后再 sysupgrade.itb。
+- NAND 版通常会用 nand-preloader.bin、nand-bl31-uboot.fip、initramfs-recovery.itb，然后再 sysupgrade.itb。
+
+刷写启动链前必须备份原厂分区，尤其是 Factory/factory 校准分区。
+EOF
+            (
+              cd install-artifact
+              find . -maxdepth 1 -type f ! -name sha256sums -printf '%P\0' | sort -z | xargs -0 sha256sum > sha256sums
+              7z a -t7z -m0=lzma2 -mx=9 -md=256m -mfb=273 -ms=on -mmt=on -myx=9 "../${image_name}-install.7z" .
+            )
+            release_artifacts="${release_artifacts},${image_name}-install.7z"
+          fi
+          echo "release_artifacts=${release_artifacts}" >> "$GITHUB_ENV"
 
       - name: 创建 Release
         if: github.event_name != 'pull_request'
@@ -218,4 +246,4 @@ jobs:
           artifactErrorsFailBuild: true
           replacesArtifacts: true
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: ${{ env.image_name }}.7z
+          artifacts: ${{ env.release_artifacts }}

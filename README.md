@@ -86,7 +86,7 @@ localhostForwarding=true
 - 第一次 `JOBS=8` 完整编译走到 host LLVM/Clang 后因为 WSL OOM 失败，不是插件源码错误。
 - WSL 调整为 12GB RAM 和 16GB swap 后，`cmcc_rax3000m` 的 `make -j1 V=s` 完成。
 - `BUILD_PROFILE=cmcc_rax3000m JOBS=2 DOWNLOAD_JOBS=8 bash build_all.sh` 完成，并把固件收集到 `/home/miunah/my_project/mt798x_build_2512/artifacts/cmcc_rax3000m`。
-- 现在默认只打包普通刷机文件：`*sysupgrade*`、`*factory*`、`*.manifest` 和自动生成的 `sha256sums`。`preloader`、`bl31-uboot.fip`、`gpt`、`initramfs/recovery` 不再混进普通 Release 包。
+- 现在默认把固件分成两个包：普通包只放 `*sysupgrade*`、`*factory*`、`*.manifest` 和 `sha256sums`；`*-install.7z` 只放新刷/救援可能用到的 `preloader`、`bl31-uboot.fip`、`gpt`、`initramfs/recovery`。
 
 真实设备刷机仍未验证。
 
