@@ -15,8 +15,8 @@
 - `profile_groups.conf`：按平台/档位合并的编译组，GitHub Actions 默认按这个分组编译。
 - `package.conf`：额外插件和 LuCI 应用列表。
 - `01_prepare.sh`：刷新 feeds，并加入 23.05 自用固件也用到的第三方包。
-- `04_make_profile_config.sh`：为单个 `mediatek/filogic` profile 生成 `.config`。
-- `06_validate_target_config.sh`：检查 `make defconfig` 后指定 profile 是否仍然被选中。
+- `04_make_profile_config.sh`：为单个或多个 `mediatek/filogic` profile 生成 `.config`。
+- `06_validate_target_config.sh`：检查 `make defconfig` 后指定 profile 是否仍然被选中，单 profile 和 multi-profile 使用不同的 Kconfig 符号。
 - `.github/workflows/mt798x.yml`：只允许手动触发的 GitHub Actions 编译和 Release 流程。
 
 ## GitHub Actions 编译

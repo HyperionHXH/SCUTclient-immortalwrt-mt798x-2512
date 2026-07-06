@@ -14,12 +14,27 @@ read_profiles() {
 }
 
 mapfile -t profiles < <(read_profiles)
+if [ "${#profiles[@]}" -eq 0 ]; then
+  echo "没有可验证的设备 profile" >&2
+  exit 1
+fi
+
+multi_profile=n
+if [ "${#profiles[@]}" -gt 1 ]; then
+  multi_profile=y
+fi
+
 for profile in "${profiles[@]}"; do
-  expected="CONFIG_TARGET_mediatek_filogic_DEVICE_${profile}=y"
+  if [ "$multi_profile" = "y" ]; then
+    expected="CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_${profile}=y"
+  else
+    expected="CONFIG_TARGET_mediatek_filogic_DEVICE_${profile}=y"
+  fi
+
   if ! grep -Fqx "$expected" "$config_file"; then
     echo "make defconfig 后目标 profile 没有被启用：$profile" >&2
     echo "期望配置行：$expected" >&2
-    selected="$(grep -E '^CONFIG_TARGET_mediatek_filogic_DEVICE_.+=y$' "$config_file" || true)"
+    selected="$(grep -E '^(CONFIG_TARGET_mediatek_filogic_DEVICE_|CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_).+=y$' "$config_file" || true)"
     if [ -n "$selected" ]; then
       echo "当前选中的 profile 行：" >&2
       echo "$selected" >&2

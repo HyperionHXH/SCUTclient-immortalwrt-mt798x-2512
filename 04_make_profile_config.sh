@@ -42,5 +42,10 @@ CONFIG_VERSION_BUG_URL="https://github.com/immortalwrt/immortalwrt/issues"
 EOF
 
 for profile in "${profiles[@]}"; do
-  echo "CONFIG_TARGET_mediatek_filogic_DEVICE_${profile}=y" >> "$config_file"
+  if [ "$multi_profile" = "y" ]; then
+    echo "CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_${profile}=y" >> "$config_file"
+    echo "CONFIG_TARGET_DEVICE_PACKAGES_mediatek_filogic_DEVICE_${profile}=\"\"" >> "$config_file"
+  else
+    echo "CONFIG_TARGET_mediatek_filogic_DEVICE_${profile}=y" >> "$config_file"
+  fi
 done
