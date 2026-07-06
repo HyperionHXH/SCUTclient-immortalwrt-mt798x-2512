@@ -106,7 +106,7 @@ while IFS='|' read -r target artifact_subdir profiles; do
   profile_artifact_dir="$ARTIFACT_DIR/$target"
   mkdir -p "$profile_artifact_dir"
   find "bin/targets/$artifact_subdir" -maxdepth 1 -type f \
-    \( -name '*initramfs*' -o -name '*squashfs*' -o -name '*factory*' -o -name '*sysupgrade*' -o -name '*preloader*' -o -name '*bl31*' -o -name '*fip*' -o -name '*gpt*' -o -name '*.manifest' \) \
+    \( -name '*factory*' -o -name '*sysupgrade*' -o -name '*.manifest' \) \
     -exec cp -f {} "$profile_artifact_dir/" \;
   (
     cd "$profile_artifact_dir"

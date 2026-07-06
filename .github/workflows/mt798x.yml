@@ -195,7 +195,7 @@ jobs:
           mkdir -p artifact
           find "openwrt/bin/targets/${ARTIFACT_SUBDIR}" -maxdepth 1 -type f -printf '%p\n' | sort
           mapfile -t images < <(find "openwrt/bin/targets/${ARTIFACT_SUBDIR}" -maxdepth 1 -type f \
-            \( -name '*initramfs*' -o -name '*squashfs*' -o -name '*factory*' -o -name '*sysupgrade*' -o -name '*preloader*' -o -name '*bl31*' -o -name '*fip*' -o -name '*gpt*' -o -name '*.manifest' \) | sort)
+            \( -name '*factory*' -o -name '*sysupgrade*' -o -name '*.manifest' \) | sort)
           if [ "${#images[@]}" -eq 0 ]; then
             echo "在 openwrt/bin/targets/${ARTIFACT_SUBDIR} 下没有找到固件产物" >&2
             exit 1

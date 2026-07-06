@@ -6,6 +6,11 @@ OPENWRT_DIR="${OPENWRT_DIR:-$(pwd)}"
 
 cd "$OPENWRT_DIR"
 
+for patch_script in "$SCRIPT_DIR"/patches/2512/*.sh; do
+  [ -e "$patch_script" ] || continue
+  bash "$patch_script" "$OPENWRT_DIR"
+done
+
 ./scripts/feeds update -a
 
 rm -rf package/luci-theme-argon
