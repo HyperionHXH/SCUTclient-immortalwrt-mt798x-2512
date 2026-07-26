@@ -87,6 +87,7 @@ BUILD_TARGET=cmcc_rax3000m bash build_all.sh
 
 ## 已知 25.12 修复
 
+- `luci-app-scutclient`：固定上游提交，把 LuCI 依赖和运行状态改为局部变量，保留 dispatcher 的 `template()` 路由函数，并用标准 Lua 文件检查替代 `nixio.fs`。
 - `scut-unicom`：上游日期格式 `PKG_RELEASE=YYYY-MM-DD` 不是合法 APK 版本，`01_prepare.sh` 会改写为 `PKG_VERSION=YYYYMMDD` 加 `PKG_RELEASE=1`。
 - `luci-app-openvpn-server`：自带重复的 `/etc/config/openvpn`，会和 `openvpn-openssl` 冲突；`01_prepare.sh` 会删除该文件，并通过 uci-defaults 初始化 `openvpn.myvpn`。
 - `tailscale`：使用官方 `luci-app-tailscale-community` 和官方 `tailscale`；不要再克隆旧的第三方 `luci-app-tailscale`。

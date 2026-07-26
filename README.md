@@ -90,8 +90,9 @@ localhostForwarding=true
 
 真实设备刷机仍未验证。
 
-本地成功编译时应用过的兼容修复：
+当前构建流程应用的兼容修复：
 
+- `luci-app-scutclient`：固定上游提交，修复现代 LuCI `ucodebridge` 下的全局变量问题，并移除对 `nixio.fs` 的依赖。该控制器已在 23.05 实机的 LuCI 根页、设置、状态、日志和关于页面完成运行验证。
 - `scut-unicom`：把日期格式 `PKG_RELEASE=YYYY-MM-DD` 改成 APK 可接受的 `PKG_VERSION=YYYYMMDD` 加 `PKG_RELEASE=1`。
 - `luci-app-openvpn-server`：删除重复的 `/etc/config/openvpn`，改用 uci-defaults 初始化 `openvpn.myvpn`，避免和 `openvpn-openssl` 冲突。
 - `tailscale`：使用官方 `luci-app-tailscale-community` 和官方 `tailscale`，删除旧的第三方 `package/luci-app-tailscale` 克隆，避免 `/etc/config/tailscale` 和 init 脚本冲突。

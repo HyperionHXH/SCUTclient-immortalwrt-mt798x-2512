@@ -1,0 +1,100 @@
+diff --git a/luasrc/controller/scutclient.lua b/luasrc/controller/scutclient.lua
+index b3d7388..3d75e2d 100644
+--- a/luasrc/controller/scutclient.lua
++++ b/luasrc/controller/scutclient.lua
+@@ -1,14 +1,25 @@
+ module("luci.controller.scutclient", package.seeall)
+ 
+-http = require "luci.http"
+-fs = require "nixio.fs"
+-sys  = require "luci.sys"
++local http = require "luci.http"
++local sys = require "luci.sys"
++local luci_template = require "luci.template"
++local io_open = io.open
++local table_foreach = table.foreach
++
++local function file_exists(path)
++	local file = io_open(path, "r")
++	if file then
++		file:close()
++		return true
++	end
++	return false
++end
+ 
+-log_file = "/tmp/scutclient.log"
+-log_file_backup = "/tmp/scutclient.log.backup.log"
++local log_file = "/tmp/scutclient.log"
++local log_file_backup = "/tmp/scutclient.log.backup.log"
+ 
+ function index()
+-	if not fs.access("/etc/config/scutclient") then
++	if not file_exists("/etc/config/scutclient") then
+ 		return
+ 	end
+ 	local uci = require "luci.model.uci".cursor()
+@@ -42,7 +53,8 @@ end
+ 
+ function get_log()
+ 	local send_log_lines = 75
+-	if fs.access(log_file) then
++	local client_log
++	if file_exists(log_file) then
+ 		client_log = sys.exec("tail -n "..send_log_lines.." " .. log_file)
+ 	else
+ 		client_log = "Unable to access the log file!"
+@@ -54,18 +66,18 @@ function get_log()
+ end
+ 
+ function action_about()
+-	luci.template.render("scutclient/about")
++	luci_template.render("scutclient/about")
+ end
+ 
+ 
+ function action_status()
+-	luci.template.render("scutclient/status")
+-	if luci.http.formvalue("logoff") == "1" then
+-		luci.sys.call("/etc/init.d/scutclient stop > /dev/null")
++	luci_template.render("scutclient/status")
++	if http.formvalue("logoff") == "1" then
++		sys.call("/etc/init.d/scutclient stop > /dev/null")
+ 	end
+-	if luci.http.formvalue("redial") == "1" then
+-		luci.sys.call("/etc/init.d/scutclient stop > /dev/null")
+-		luci.sys.call("/etc/init.d/scutclient start > /dev/null")
++	if http.formvalue("redial") == "1" then
++		sys.call("/etc/init.d/scutclient stop > /dev/null")
++		sys.call("/etc/init.d/scutclient start > /dev/null")
+ 	end
+ end
+ 
+@@ -99,19 +111,19 @@ function get_dbgtar()
+ 		"/etc/rc.local",
+ 	}
+ 
+-	fs.mkdirr(tar_dir)
+-	table.foreach(tar_files, function(i, v)
+-			luci.sys.call("cp " .. v .. " " .. tar_dir)
++	sys.call("mkdir -p " .. tar_dir)
++	table_foreach(tar_files, function(i, v)
++			sys.call("cp " .. v .. " " .. tar_dir)
+ 	end)
+ 
+-	if fs.access(log_file_backup) then
+-		luci.sys.call("cat " .. log_file_backup .. " >> " .. tar_dir .. "/scutclient.log")
++	if file_exists(log_file_backup) then
++		sys.call("cat " .. log_file_backup .. " >> " .. tar_dir .. "/scutclient.log")
+ 	end
+-	if fs.access(log_file) then
+-		luci.sys.call("cat " .. log_file .. " >> " .. tar_dir .. "/scutclient.log")
++	if file_exists(log_file) then
++		sys.call("cat " .. log_file .. " >> " .. tar_dir .. "/scutclient.log")
+ 	end
+ 	http.prepare_content("application/octet-stream")
+ 	http.write(sys.exec("tar -C " .. tar_dir .. " -cf - ."))
+-	luci.sys.call("rm -rf " .. tar_dir)
++	sys.call("rm -rf " .. tar_dir)
+ 	http.close()
+ end

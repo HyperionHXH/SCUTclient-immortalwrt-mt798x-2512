@@ -3,6 +3,7 @@ set -e -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OPENWRT_DIR="${OPENWRT_DIR:-$(pwd)}"
+SCUTCLIENT_COMMIT="d9d618be97870813252b5ce7540f6a4ea4c22ab0"
 
 cd "$OPENWRT_DIR"
 
@@ -17,12 +18,13 @@ rm -rf package/luci-theme-argon
 git clone --depth=1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
 
 rm -rf feeds/luci/applications/luci-app-scutclient
-git clone --depth=1 https://github.com/hanwckf/luci-app-scutclient.git feeds/luci/applications/luci-app-scutclient
-
-scut_controller="feeds/luci/applications/luci-app-scutclient/luasrc/controller/scutclient.lua"
-if [ -f "$scut_controller" ] && grep -q 'require "nixio.fs"' "$scut_controller"; then
-  python3 "$SCRIPT_DIR/scripts/patch_scutclient.py" "$scut_controller"
-fi
+git clone https://github.com/hanwckf/luci-app-scutclient.git feeds/luci/applications/luci-app-scutclient
+git -C feeds/luci/applications/luci-app-scutclient checkout --detach "$SCUTCLIENT_COMMIT"
+[ "$(git -C feeds/luci/applications/luci-app-scutclient rev-parse HEAD)" = "$SCUTCLIENT_COMMIT" ]
+git -C feeds/luci/applications/luci-app-scutclient apply \
+  "$SCRIPT_DIR/patches/2512/luci-app-scutclient-modern-luci.patch"
+bash "$SCRIPT_DIR/scripts/validate_scutclient.sh" \
+  feeds/luci/applications/luci-app-scutclient/luasrc/controller/scutclient.lua
 
 rm -rf package/scut-unicom
 mkdir -p package/scut-unicom
