@@ -29,7 +29,7 @@ jobs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - name: 拉取本仓库
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 生成编译矩阵
         id: matrix
