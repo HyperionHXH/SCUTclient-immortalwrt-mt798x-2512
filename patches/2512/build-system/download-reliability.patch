@@ -1,0 +1,42 @@
+diff --git a/scripts/download.pl b/scripts/download.pl
+index b7ff6f481..257539a99 100755
+--- a/scripts/download.pl
++++ b/scripts/download.pl
+@@ -124,7 +124,9 @@ sub download_cmd {
+ 	my $filename = shift;
+ 
+ 	if ($download_tool eq "curl") {
+-		return (qw(curl -f --connect-timeout 5 --retry 3 --location),
++		return (qw(curl -f --connect-timeout 15
++			--speed-limit 1024 --speed-time 30 --max-time 300
++			--retry 2 --retry-delay 2 --retry-max-time 180 --location),
+ 			$check_certificate ? () : '--insecure',
+ 			shellwords($ENV{CURL_OPTIONS} || ''),
+ 			$url);
+diff --git a/scripts/localmirrors b/scripts/localmirrors
+new file mode 100644
+index 000000000..ab30a6b5f
+--- /dev/null
++++ b/scripts/localmirrors
+@@ -0,0 +1,4 @@
++https://sources.cdn.openwrt.org
++https://sources.openwrt.org
++https://sources-cdn.immortalwrt.org
++https://sources.immortalwrt.org
+diff --git a/scripts/projectsmirrors.json b/scripts/projectsmirrors.json
+index 3cac6c068..3e72ef13d 100644
+--- a/scripts/projectsmirrors.json
++++ b/scripts/projectsmirrors.json
+@@ -51,10 +51,10 @@
+ 		"https://cdimage.debian.org/mirror/gnu.org/savannah"
+ 	],
+ 	"@KERNEL": [
+-		"https://mirror.iscas.ac.cn/kernel.org",
++		"https://cdn.kernel.org/pub",
+ 		"https://mirrors.ustc.edu.cn/kernel.org",
+ 		"https://mirror.nju.edu.cn/kernel.org",
+-		"https://cdn.kernel.org/pub",
++		"https://mirror.iscas.ac.cn/kernel.org",
+ 		"https://mirrors.mit.edu/kernel",
+ 		"http://ftp.nara.wide.ad.jp/pub/kernel.org",
+ 		"http://www.ring.gr.jp/archives/linux/kernel.org",

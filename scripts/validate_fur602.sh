@@ -8,6 +8,10 @@ DTS="$OPENWRT_DIR/target/linux/mediatek/dts/mt7981b-honor-fur-602.dts"
 IMAGE_MK="$OPENWRT_DIR/target/linux/mediatek/image/filogic.mk"
 NETWORK_FILE="$OPENWRT_DIR/target/linux/mediatek/filogic/base-files/etc/board.d/02_network"
 UPGRADE_FILE="$OPENWRT_DIR/target/linux/mediatek/filogic/base-files/lib/upgrade/platform.sh"
+DOWNLOAD_SCRIPT="$OPENWRT_DIR/scripts/download.pl"
+PROJECT_MIRRORS="$OPENWRT_DIR/scripts/projectsmirrors.json"
+LOCAL_MIRRORS="$OPENWRT_DIR/scripts/localmirrors"
+DOWNLOAD_PATCH="$WRAPPER_DIR/patches/2512/build-system/download-reliability.patch"
 
 fail() {
   echo "FUR602 适配校验失败：$*" >&2
@@ -58,6 +62,23 @@ require_file "$DTS"
 require_file "$IMAGE_MK"
 require_file "$NETWORK_FILE"
 require_file "$UPGRADE_FILE"
+require_file "$DOWNLOAD_SCRIPT"
+require_file "$PROJECT_MIRRORS"
+require_file "$LOCAL_MIRRORS"
+require_file "$DOWNLOAD_PATCH"
+
+grep -Fq -- '--speed-limit 1024 --speed-time 30 --max-time 300' "$DOWNLOAD_SCRIPT" || \
+  fail "download.pl 缺少低速连接和单次下载时限"
+grep -Fq -- '--retry 2 --retry-delay 2 --retry-max-time 180' "$DOWNLOAD_SCRIPT" || \
+  fail "download.pl 的重试次数仍可能长时间占用 Action"
+[ "$(sed -n '1p' "$LOCAL_MIRRORS" | tr -d '\r')" = 'https://sources.cdn.openwrt.org' ] || \
+  fail "OpenWrt CDN 不是首选下载源"
+
+kernel_cdn_line="$(grep -nF '"https://cdn.kernel.org/pub"' "$PROJECT_MIRRORS" | cut -d: -f1 || true)"
+kernel_iscas_line="$(grep -nF '"https://mirror.iscas.ac.cn/kernel.org"' "$PROJECT_MIRRORS" | cut -d: -f1 || true)"
+[ -n "$kernel_cdn_line" ] && [ -n "$kernel_iscas_line" ] && \
+  [ "$kernel_cdn_line" -lt "$kernel_iscas_line" ] || \
+  fail "KERNEL 下载仍然优先访问 ISCAS，而不是 cdn.kernel.org"
 
 grep -Fq '#include <dt-bindings/pinctrl/mt65xx.h>' "$DTS" || \
   fail "DTS 缺少 MTK pinctrl 常量头文件"

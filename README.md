@@ -92,6 +92,7 @@ localhostForwarding=true
 
 当前构建流程应用的兼容修复：
 
+- `scripts/download.pl`：单个镜像低速 30 秒后切换，单次最多 5 分钟；Kernel 源优先使用官方 CDN，避免失效镜像拖垮 Action 下载阶段。
 - `luci-app-scutclient`：固定上游提交，修复现代 LuCI `ucodebridge` 下的全局变量问题，并移除对 `nixio.fs` 的依赖。该控制器已在 23.05 实机的 LuCI 根页、设置、状态、日志和关于页面完成运行验证。
 - `scut-unicom`：把日期格式 `PKG_RELEASE=YYYY-MM-DD` 改成 APK 可接受的 `PKG_VERSION=YYYYMMDD` 加 `PKG_RELEASE=1`。
 - `luci-app-openvpn-server`：删除重复的 `/etc/config/openvpn`，改用 uci-defaults 初始化 `openvpn.myvpn`，避免和 `openvpn-openssl` 冲突。
