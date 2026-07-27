@@ -4,6 +4,7 @@ run-name: MT798x 25.12 - ${{ inputs.build_target || 'mt7981-ax3000' }}
 env:
   REPO_URL: https://github.com/immortalwrt/immortalwrt.git
   REPO_BRANCH: openwrt-25.12
+  REPO_COMMIT: 1cfeb3edade40fe2dfec59c21381de1d8e361100
 
 on:
   workflow_dispatch:
@@ -109,20 +110,8 @@ jobs:
       GOPROXY: https://goproxy.cn,direct
 
     steps:
-      - name: 释放 GitHub Runner 编译空间
-        uses: easimon/maximize-build-space@v10
-        with:
-          swap-size-mb: 512
-          temp-reserve-mb: 1
-          root-reserve-mb: 8192
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
-          remove-docker-images: 'true'
-
       - name: 拉取本仓库
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 安装编译依赖
         env:
@@ -141,6 +130,28 @@ jobs:
           sudo apt clean
           sudo rm -rf /var/lib/apt/lists/*
 
+      - name: 清理 GitHub Runner 编译空间
+        run: |
+          set -e -o pipefail
+          echo "清理前："
+          df -h / "$GITHUB_WORKSPACE"
+
+          # maximize-build-space 曾在当前 Runner 镜像上把根分区压缩到约 1 GiB。
+          # 这里只删除 MT798x 编译不需要的预装 SDK，不修改 Runner 分区布局。
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+
+          echo "清理后："
+          df -h / "$GITHUB_WORKSPACE"
+          workspace_available_kb="$(df --output=avail "$GITHUB_WORKSPACE" | tail -1)"
+          if [ "$workspace_available_kb" -lt 73400320 ]; then
+            echo "错误：工作区可用空间不足 70 GiB，停止编译以避免中途耗尽。" >&2
+            exit 1
+          fi
+
       - name: 准备源码和配置
         run: |
           set -e -o pipefail
@@ -149,10 +160,15 @@ jobs:
           echo "image_name=${image_prefix}-${build_date}" >> "$GITHUB_ENV"
           echo "release_tag=${image_prefix}-${build_date}" >> "$GITHUB_ENV"
 
-          git clone --depth=1 -b "$REPO_BRANCH" "$REPO_URL" openwrt
+          git init openwrt
+          git -C openwrt remote add origin "$REPO_URL"
+          git -C openwrt fetch --depth=1 origin "$REPO_COMMIT"
+          git -C openwrt checkout --detach FETCH_HEAD
+          test "$(git -C openwrt rev-parse HEAD)" = "$REPO_COMMIT"
 
           cd openwrt
           bash ../01_prepare.sh
+          bash ../scripts/validate_fur602.sh .
           bash ../05_validate_profile.sh "$PROFILES"
           bash ../04_make_profile_config.sh "$PROFILES" .config
           bash ../02_add_package.sh
@@ -171,19 +187,15 @@ jobs:
       - name: 下载源码包
         run: |
           cd openwrt
-          for attempt in 1 2 3; do
-            echo "第 ${attempt}/3 次下载尝试"
-            if timeout 45m make download -j4; then
-              exit 0
-            fi
-            sleep 30
-          done
-          timeout 30m make download -j1 V=s
+          timeout 30m make download -j8 || {
+            echo "并行下载失败或超时，改用单线程详细日志重试..."
+            timeout 20m make download -j1 V=s
+          }
 
       - name: 编译固件
         run: |
           cd openwrt
-          timeout 4h make -j"$(nproc)" || {
+          timeout 3h make -j"$(nproc)" || {
             echo "并行编译失败或超时，改用单线程详细日志重试..."
             timeout 90m make -j1 V=s
           }
@@ -215,15 +227,15 @@ jobs:
           if [ "${#install_images[@]}" -gt 0 ]; then
             cp "${install_images[@]}" install-artifact/
             cat > install-artifact/README-install.zh-CN.txt <<'EOF'
-这个包只用于新刷、救援或更换启动链。
-日常升级请使用普通包里的 sysupgrade 文件，不要随便刷 preloader、FIP、GPT 或 recovery。
+          这个包只用于新刷、救援或更换启动链。
+          日常升级请使用普通包里的 sysupgrade 文件，不要随便刷 preloader、FIP、GPT 或 recovery。
 
-RAX3000M 需要先确认是 eMMC 版还是 NAND 版：
-- eMMC 版通常会用 emmc-gpt.bin、emmc-preloader.bin、emmc-bl31-uboot.fip、initramfs-recovery.itb，然后再 sysupgrade.itb。
-- NAND 版通常会用 nand-preloader.bin、nand-bl31-uboot.fip、initramfs-recovery.itb，然后再 sysupgrade.itb。
+          RAX3000M 需要先确认是 eMMC 版还是 NAND 版：
+          - eMMC 版通常会用 emmc-gpt.bin、emmc-preloader.bin、emmc-bl31-uboot.fip、initramfs-recovery.itb，然后再 sysupgrade.itb。
+          - NAND 版通常会用 nand-preloader.bin、nand-bl31-uboot.fip、initramfs-recovery.itb，然后再 sysupgrade.itb。
 
-刷写启动链前必须备份原厂分区，尤其是 Factory/factory 校准分区。
-EOF
+          刷写启动链前必须备份原厂分区，尤其是 Factory/factory 校准分区。
+          EOF
             (
               cd install-artifact
               find . -maxdepth 1 -type f ! -name sha256sums -printf '%P\0' | sort -z | xargs -0 sha256sum > sha256sums

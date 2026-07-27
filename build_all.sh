@@ -6,6 +6,7 @@ export GOPROXY="${GOPROXY:-https://goproxy.cn,direct}"
 
 REPO_URL="${REPO_URL:-https://github.com/immortalwrt/immortalwrt.git}"
 REPO_BRANCH="${REPO_BRANCH:-openwrt-25.12}"
+REPO_COMMIT="${REPO_COMMIT:-1cfeb3edade40fe2dfec59c21381de1d8e361100}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OPENWRT_DIR="${OPENWRT_DIR:-$SCRIPT_DIR/openwrt}"
 ARTIFACT_DIR="${ARTIFACT_DIR:-$SCRIPT_DIR/artifacts}"
@@ -21,7 +22,10 @@ clone_openwrt() {
     return
   fi
 
-  git clone --depth=1 -b "$REPO_BRANCH" "$REPO_URL" "$OPENWRT_DIR"
+  git init "$OPENWRT_DIR"
+  git -C "$OPENWRT_DIR" remote add origin "$REPO_URL"
+  git -C "$OPENWRT_DIR" fetch --depth=1 origin "$REPO_COMMIT"
+  git -C "$OPENWRT_DIR" checkout --detach FETCH_HEAD
 }
 
 read_profiles() {
@@ -82,8 +86,15 @@ echo "========================================="
 
 clone_openwrt
 
+actual_commit="$(git -C "$OPENWRT_DIR" rev-parse HEAD)"
+if [ "$actual_commit" != "$REPO_COMMIT" ]; then
+  echo "源码提交为 $actual_commit，尚未审查；预期 $REPO_COMMIT" >&2
+  exit 1
+fi
+
 cd "$OPENWRT_DIR"
 bash "$SCRIPT_DIR/01_prepare.sh"
+bash "$SCRIPT_DIR/scripts/validate_fur602.sh" .
 
 rm -rf "$ARTIFACT_DIR"
 mkdir -p "$ARTIFACT_DIR"

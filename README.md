@@ -17,13 +17,14 @@
 - `01_prepare.sh`：刷新 feeds，并加入 23.05 自用固件也用到的第三方包。
 - `04_make_profile_config.sh`：为单个或多个 `mediatek/filogic` profile 生成 `.config`。
 - `06_validate_target_config.sh`：检查 `make defconfig` 后指定 profile 是否仍然被选中，单 profile 和 multi-profile 使用不同的 Kconfig 符号。
+- `scripts/validate_fur602.sh`：检查 FUR602 的分区、DSA 端口、无线校准数据、镜像格式和固定上游提交。
 - `.github/workflows/mt798x.yml`：只允许手动触发的 GitHub Actions 编译和 Release 流程。
 
 ## GitHub Actions 编译
 
 入口：
 
-[MT798x 25.12 手动编译](https://github.com/HyperionHXH/-immortalwrt-mt798x-2512/actions/workflows/mt798x.yml)
+[MT798x 25.12 手动编译](https://github.com/HyperionHXH/SCUTclient-immortalwrt-mt798x-2512/actions/workflows/mt798x.yml)
 
 点 **Run workflow** 后可以选择：
 
@@ -46,7 +47,6 @@ Actions 只有 `workflow_dispatch`，不会因为 push 自动开始编译。
 ```bash
 cd /home/miunah/my_project/mt798x_build_2512
 
-git clone --depth=1 -b openwrt-25.12 https://github.com/immortalwrt/immortalwrt.git openwrt
 bash build_all.sh
 ```
 
@@ -115,6 +115,7 @@ localhostForwarding=true
 25.12 官方源码状态：
 
 - `openwrt-25.12` 使用官方 `mediatek/filogic` profile。
+- 上游源码固定为 `1cfeb3edade40fe2dfec59c21381de1d8e361100`，更新前必须重新 review FUR602 适配。
 - 无线相关包由每个上游 profile 自己选择，通常是 `kmod-mt7915e`、SoC firmware 包和 `*-wo-firmware`。
 - 本仓库不会删除或替换 `/sbin/wifi`，也不会启用旧的 `wifi-profile` 绕路方案。
 
