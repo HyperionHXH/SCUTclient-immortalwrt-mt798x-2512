@@ -40,6 +40,20 @@ Actions 只有 `workflow_dispatch`，不会因为 push 自动开始编译。
 
 `Settings > Actions > General > Workflow permissions > Read and write permissions`
 
+## FUR602 刷机
+
+FUR602/FUR603 的产物仍然是 `.bin`，与 RAX3000M 的 `.itb` 启动链格式不同。普通 Release 包只保留：
+
+- `*honor_fur-602-squashfs-factory.bin`：已经安装 MT798x 多布局 U-Boot 时，从 U-Boot Web 新刷使用。
+- `*honor_fur-602-squashfs-sysupgrade.bin`：从现有 ImmortalWrt 的 LuCI 或 `sysupgrade` 命令升级使用。
+- `*.manifest` 和 `sha256sums`：软件包清单和校验值，不是刷机文件。
+
+从现有 23.05 升级到 25.12：在 LuCI 的“系统 -> 备份/升级”上传 `sysupgrade.bin`，跨大版本且无线驱动栈不同，不保留配置。
+
+从已经安装好的 MT798x 多布局 U-Boot Web 新刷：电脑设置静态地址 `192.168.1.10/24`，按住 Reset 上电进入 `http://192.168.1.1`，`Choose mtd layout` 选择 `expand(114m)`，上传 `factory.bin`，再执行 Upload/Update。写入和首次启动期间不要断电。原厂系统或原厂 U-Boot 不能直接照此操作。
+
+公开操作参考：[FUR602/FUR603 免拆刷机与 U-Boot 教程](https://www.ixmu.net/200.html)。不要把 RAX3000M 的 `.itb`、preloader、FIP、GPT 或 recovery 文件刷到 FUR602。
+
 ## 本地 WSL 参考
 
 现在不建议在本地长期保留完整源码和编译缓存。下面命令只用于以后排查 GitHub Actions 失败、或者需要本地复现时参考。
@@ -86,7 +100,7 @@ localhostForwarding=true
 - 第一次 `JOBS=8` 完整编译走到 host LLVM/Clang 后因为 WSL OOM 失败，不是插件源码错误。
 - WSL 调整为 12GB RAM 和 16GB swap 后，`cmcc_rax3000m` 的 `make -j1 V=s` 完成。
 - `BUILD_PROFILE=cmcc_rax3000m JOBS=2 DOWNLOAD_JOBS=8 bash build_all.sh` 完成，并把固件收集到 `/home/miunah/my_project/mt798x_build_2512/artifacts/cmcc_rax3000m`。
-- 现在默认把固件分成两个包：普通包只放 `*sysupgrade*`、`*factory*`、`*.manifest` 和 `sha256sums`；`*-install.7z` 只放新刷/救援可能用到的 `preloader`、`bl31-uboot.fip`、`gpt`、`initramfs/recovery`。
+- 现在默认把固件分成两个包：普通包只放 `*sysupgrade*`、`*factory*`、`*.manifest` 和 `sha256sums`；`*-install.7z` 只放新刷/救援可能用到的 `preloader`、`bl31-uboot.fip`、`gpt` 和名称含 `recovery` 的镜像。
 
 真实设备刷机仍未验证。
 
