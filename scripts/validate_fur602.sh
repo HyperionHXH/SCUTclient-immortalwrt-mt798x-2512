@@ -11,6 +11,7 @@ UPGRADE_FILE="$OPENWRT_DIR/target/linux/mediatek/filogic/base-files/lib/upgrade/
 DOWNLOAD_SCRIPT="$OPENWRT_DIR/scripts/download.pl"
 PROJECT_MIRRORS="$OPENWRT_DIR/scripts/projectsmirrors.json"
 LOCAL_MIRRORS="$OPENWRT_DIR/scripts/localmirrors"
+HAPROXY_DEFAULTS="$OPENWRT_DIR/package/base-files/files/etc/uci-defaults/99-disable-unused-haproxy"
 DOWNLOAD_PATCH="$WRAPPER_DIR/patches/2512/build-system/download-reliability.patch"
 
 fail() {
@@ -65,7 +66,13 @@ require_file "$UPGRADE_FILE"
 require_file "$DOWNLOAD_SCRIPT"
 require_file "$PROJECT_MIRRORS"
 require_file "$LOCAL_MIRRORS"
+require_file "$HAPROXY_DEFAULTS"
 require_file "$DOWNLOAD_PATCH"
+
+grep -Fq '/etc/init.d/haproxy disable' "$HAPROXY_DEFAULTS" || \
+  fail "未默认禁用 HAProxy 示例服务"
+grep -Fq '/etc/init.d/haproxy stop' "$HAPROXY_DEFAULTS" || \
+  fail "未停止 HAProxy 示例服务"
 
 grep -Fq -- '--speed-limit 1024 --speed-time 30 --max-time 300' "$DOWNLOAD_SCRIPT" || \
   fail "download.pl 缺少低速连接和单次下载时限"

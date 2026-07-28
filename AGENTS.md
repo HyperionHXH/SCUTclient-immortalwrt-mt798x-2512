@@ -41,7 +41,9 @@ workflow 必须保持手动触发，不允许添加自动 `push` 触发。
 
 - `scut-unicom`：把上游 `PKG_RELEASE=YYYY-MM-DD` 改成 APK 兼容的 `PKG_VERSION=YYYYMMDD` 加 `PKG_RELEASE=1`。
 - `luci-app-openvpn-server`：删除重复的 `/etc/config/openvpn`，并通过 uci-defaults 初始化 `openvpn.myvpn`。
-- `tailscale`：使用官方 `luci-app-tailscale-community`；不要克隆旧第三方 `luci-app-tailscale`。
+- `SQM`：使用官方 `luci-app-sqm`，并校验 CAKE、IFB、tc 和 iptables 依赖。
+- `Tailscale`：不再加入固件；同时禁止官方 `luci-app-tailscale-community`、`tailscale` 和旧第三方包。
+- `HAProxy`：作为 Passwall 依赖保留二进制，但必须通过 uci-defaults 禁用自带示例服务。
 
 ## 设备 Profile
 

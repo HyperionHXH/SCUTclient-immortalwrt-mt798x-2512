@@ -4,6 +4,35 @@ set -e -o pipefail
 CONFIG_FILE="${CONFIG_FILE:-.config}"
 PACKAGE_CONF="${PACKAGE_CONF:-../package.conf}"
 
+fail() {
+  echo "软件包校验失败：$*" >&2
+  exit 1
+}
+
+require_enabled() {
+  grep -Fqx "CONFIG_PACKAGE_$1=y" "$CONFIG_FILE" || fail "缺少 $1"
+}
+
+require_disabled() {
+  ! grep -Fqx "CONFIG_PACKAGE_$1=y" "$CONFIG_FILE" || fail "$1 不应被选中"
+  ! grep -Fqx "CONFIG_PACKAGE_$1=m" "$CONFIG_FILE" || fail "$1 不应被选中"
+}
+
+find_enabled() {
+  local package
+
+  for package in "$@"; do
+    if grep -Fqx "CONFIG_PACKAGE_$package=y" "$CONFIG_FILE"; then
+      printf '%s\n' "$package"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+[ -f "$CONFIG_FILE" ] || fail "缺少配置文件 $CONFIG_FILE"
+
 missing=()
 requested=0
 
@@ -27,4 +56,20 @@ if (( ${#missing[@]} > 0 )); then
   exit 1
 fi
 
-echo "已验证 $requested 个请求的包，全部已启用。"
+require_enabled luci-app-sqm
+require_enabled sqm-scripts
+require_enabled kmod-sched-cake
+require_enabled kmod-ifb
+require_enabled iptables-mod-ipopt
+
+tc_provider="$(find_enabled tc tc-tiny tc-full || true)"
+[ -n "$tc_provider" ] || fail "缺少 tc、tc-tiny 或 tc-full"
+
+iptables_provider="$(find_enabled iptables iptables-nft iptables-legacy || true)"
+[ -n "$iptables_provider" ] || fail "缺少 iptables、iptables-nft 或 iptables-legacy"
+
+require_disabled luci-app-tailscale
+require_disabled luci-app-tailscale-community
+require_disabled tailscale
+
+echo "已验证 $requested 个请求的包：SQM 及其依赖已启用（tc: $tc_provider，iptables: $iptables_provider），Tailscale 已移除。"

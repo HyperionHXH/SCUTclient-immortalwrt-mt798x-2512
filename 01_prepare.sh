@@ -99,6 +99,21 @@ rm -rf package/luci-app-tailscale
 
 ./scripts/feeds install -a
 
+# Passwall 需要 haproxy 二进制，但系统自带的示例服务不应在首启时常驻。
+haproxy_defaults="package/base-files/files/etc/uci-defaults/99-disable-unused-haproxy"
+mkdir -p "$(dirname "$haproxy_defaults")"
+cat > "$haproxy_defaults" <<'EOF'
+#!/bin/sh
+
+if [ -x /etc/init.d/haproxy ]; then
+	/etc/init.d/haproxy disable
+	/etc/init.d/haproxy stop
+fi
+
+exit 0
+EOF
+chmod 0755 "$haproxy_defaults"
+
 if [ -f package/base-files/files/etc/rc.local ] && \
    ! grep -q 'scut_unicom/add_route.sh server_ip username password' package/base-files/files/etc/rc.local; then
   sed -i '/^exit 0/i # 如果要使用联通加速，取消下一行注释并填好参数\n#sleep 10 && /usr/share/scut_unicom/add_route.sh server_ip username password' \
