@@ -18,6 +18,18 @@ else
   exit 1
 fi
 
+# 默认关闭 dnsmasq 的重绑定保护（LuCI 的"重绑定保护"开关）。
+REBIND_PATCH="$SCRIPT_DIR/patches/2512/build-system/dnsmasq-no-rebind.patch"
+if git apply --reverse --check "$REBIND_PATCH" >/dev/null 2>&1; then
+  echo "dnsmasq 重绑定保护补丁已经应用。"
+elif git apply --check "$REBIND_PATCH"; then
+  git apply "$REBIND_PATCH"
+  echo "已应用 dnsmasq 重绑定保护补丁。"
+else
+  echo "错误：dnsmasq 重绑定保护补丁与当前源码不匹配。" >&2
+  exit 1
+fi
+
 for patch_script in "$SCRIPT_DIR"/patches/2512/*.sh; do
   [ -e "$patch_script" ] || continue
   bash "$patch_script" "$OPENWRT_DIR"
