@@ -37,6 +37,33 @@ done
 
 ./scripts/feeds update -a
 
+# ---- passwall 核心组件改为编译时拉取上游最新版 ----
+# luci-app-passwall 由 immortalwrt/luci openwrt-25.12 feed 维护（26.x，
+# 跟随上游），保持不动。但 packages feed 里的 golang 和核心组件落后上游
+# （xray 停在 26.3.27，新版 xray 需要 Go 1.27 而 feed 只有 1.26）。这里用
+# immortalwrt/packages master 的 lang/golang 覆盖 feed 旧版，删除 feed 里
+# 落后的核心组件，改用 xiaorouji/openwrt-passwall-packages main 分支。
+echo ">> 用 master 的 lang/golang 替换 feeds/packages/lang/golang ..."
+golang_tmp="$(mktemp -d)"
+git clone --depth=1 --filter=blob:none --sparse \
+  https://github.com/immortalwrt/packages.git "$golang_tmp/packages"
+git -C "$golang_tmp/packages" sparse-checkout set lang/golang
+rm -rf feeds/packages/lang/golang
+cp -a "$golang_tmp/packages/lang/golang" feeds/packages/lang/golang
+rm -rf "$golang_tmp"
+
+echo ">> 删除 feeds 里落后的 passwall 核心组件（改用上游 main 分支）..."
+for pw_pkg in chinadns-ng dns2socks geoview hysteria ipt2socks microsocks naiveproxy \
+              shadow-tls shadowsocks-rust shadowsocksr-libev simple-obfs sing-box tcping \
+              v2ray-geodata v2ray-plugin xray-core xray-plugin; do
+  rm -rf "feeds/packages/net/$pw_pkg"
+done
+
+echo ">> 克隆 xiaorouji/openwrt-passwall-packages (main) ..."
+rm -rf package/passwall-packages
+git clone --depth=1 -b main \
+  https://github.com/xiaorouji/openwrt-passwall-packages.git package/passwall-packages
+
 rm -rf package/luci-theme-argon
 git clone --depth=1 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
 
