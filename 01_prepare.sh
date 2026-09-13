@@ -66,6 +66,10 @@ sed -i \
 sed -i 's/^GO_DEFAULT_VERSION:=1.26/GO_DEFAULT_VERSION:=1.27/' \
   feeds/packages/lang/golang/golang-values.mk
 grep -rn "golang1\.26" feeds/packages/lang/golang/ || true
+# 关键：feeds update 已按旧包名 golang1.26 生成包索引（feeds/packages.index），
+# 不清掉的话下面的 feeds install 仍按旧索引执行——golang1.27 不会被安装，
+# golang 元包会静默回退到 bootstrap 工具链（1.24.13），新版核心全部编不过。
+rm -f feeds/packages.index
 
 echo ">> 删除 feeds 里落后的 passwall 核心组件（改用上游 main 分支）..."
 for pw_pkg in chinadns-ng dns2socks geoview hysteria ipt2socks microsocks naiveproxy \
