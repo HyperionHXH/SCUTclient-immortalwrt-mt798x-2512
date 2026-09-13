@@ -39,18 +39,33 @@ done
 
 # ---- passwall 核心组件改为编译时拉取上游最新版 ----
 # luci-app-passwall 由 immortalwrt/luci openwrt-25.12 feed 维护（26.x，
-# 跟随上游），保持不动。但 packages feed 里的 golang 和核心组件落后上游
-# （xray 停在 26.3.27，新版 xray 需要 Go 1.27 而 feed 只有 1.26）。这里用
-# immortalwrt/packages master 的 lang/golang 覆盖 feed 旧版，删除 feed 里
-# 落后的核心组件，改用 xiaorouji/openwrt-passwall-packages main 分支。
-echo ">> 用 master 的 lang/golang 替换 feeds/packages/lang/golang ..."
+# 跟随上游），保持不动。但 packages feed 里的核心组件落后上游
+# （xray 停在 26.3.27，新版 xray 需要 Go 1.27 而 feed 只有 1.26）。
+# 这里把 25.12 feed 原生的 lang/golang 体系升级到 1.27（25.12 的
+# bootstrap 1.24.13 正好是 Go 1.27 的官方引导版本；注意不能直接搬
+# immortalwrt/packages master 的 golang 体系——它依赖 master buildroot
+# 的宏，在 25.12 上 host 工具链会静默退化成 bootstrap 1.24.13），
+# 然后删除 feed 里落后的核心组件，改用 xiaorouji/openwrt-passwall-packages
+# main 分支。
+echo ">> 升级 feeds/packages/lang/golang 到 Go 1.27（25.12 原生结构）..."
 golang_tmp="$(mktemp -d)"
-git clone --depth=1 --filter=blob:none --sparse \
+git clone --depth=1 --filter=blob:none --sparse -b openwrt-25.12 \
   https://github.com/immortalwrt/packages.git "$golang_tmp/packages"
 git -C "$golang_tmp/packages" sparse-checkout set lang/golang
 rm -rf feeds/packages/lang/golang
 cp -a "$golang_tmp/packages/lang/golang" feeds/packages/lang/golang
 rm -rf "$golang_tmp"
+
+mv feeds/packages/lang/golang/golang1.26 feeds/packages/lang/golang/golang1.27
+sed -i \
+  -e 's/^PKG_NAME:=golang1.26/PKG_NAME:=golang1.27/' \
+  -e 's/^GO_VERSION_MAJOR_MINOR:=1.26/GO_VERSION_MAJOR_MINOR:=1.27/' \
+  -e 's/^GO_VERSION_PATCH:=8/GO_VERSION_PATCH:=0/' \
+  -e 's|^PKG_HASH:=.*|PKG_HASH:=7002403d7cc44529ef6d26f69a44818263395ead7c16c05a5808ae047ebeb0e5|' \
+  feeds/packages/lang/golang/golang1.27/Makefile
+sed -i 's/^GO_DEFAULT_VERSION:=1.26/GO_DEFAULT_VERSION:=1.27/' \
+  feeds/packages/lang/golang/golang-values.mk
+grep -rn "golang1\.26" feeds/packages/lang/golang/ || true
 
 echo ">> 删除 feeds 里落后的 passwall 核心组件（改用上游 main 分支）..."
 for pw_pkg in chinadns-ng dns2socks geoview hysteria ipt2socks microsocks naiveproxy \
