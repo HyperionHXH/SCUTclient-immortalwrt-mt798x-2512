@@ -47,29 +47,23 @@ done
 # 的宏，在 25.12 上 host 工具链会静默退化成 bootstrap 1.24.13），
 # 然后删除 feed 里落后的核心组件，改用 xiaorouji/openwrt-passwall-packages
 # main 分支。
-echo ">> 升级 feeds/packages/lang/golang 到 Go 1.27（25.12 原生结构）..."
-golang_tmp="$(mktemp -d)"
-git clone --depth=1 --filter=blob:none --sparse -b openwrt-25.12 \
-  https://github.com/immortalwrt/packages.git "$golang_tmp/packages"
-git -C "$golang_tmp/packages" sparse-checkout set lang/golang
-rm -rf feeds/packages/lang/golang
-cp -a "$golang_tmp/packages/lang/golang" feeds/packages/lang/golang
-rm -rf "$golang_tmp"
-
-mv feeds/packages/lang/golang/golang1.26 feeds/packages/lang/golang/golang1.27
+echo ">> 升级 feeds/packages/lang/golang 到 Go 1.27（保持包名避免索引扰动）..."
+# 关键：目录名/包名保持 golang1.26 不动（feeds 包索引按包名生成，改名会让
+# 重扫后的索引静默丢失大量无关包），只把包内构建的 Go 版本换成 1.27.0。
 sed -i \
-  -e 's/^PKG_NAME:=golang1.26/PKG_NAME:=golang1.27/' \
   -e 's/^GO_VERSION_MAJOR_MINOR:=1.26/GO_VERSION_MAJOR_MINOR:=1.27/' \
   -e 's/^GO_VERSION_PATCH:=8/GO_VERSION_PATCH:=0/' \
   -e 's|^PKG_HASH:=.*|PKG_HASH:=7002403d7cc44529ef6d26f69a44818263395ead7c16c05a5808ae047ebeb0e5|' \
-  feeds/packages/lang/golang/golang1.27/Makefile
+  feeds/packages/lang/golang/golang1.26/Makefile
+# 所有 Go 包构建时的 PATH 使用 GO_DEFAULT_VERSION 指向的工具链目录
 sed -i 's/^GO_DEFAULT_VERSION:=1.26/GO_DEFAULT_VERSION:=1.27/' \
   feeds/packages/lang/golang/golang-values.mk
-grep -rn "golang1\.26" feeds/packages/lang/golang/ || true
-# 关键：feeds update 已按旧包名 golang1.26 生成包索引（feeds/packages.index），
-# 不清掉的话下面的 feeds install 仍按旧索引执行——golang1.27 不会被安装，
-# golang 元包会静默回退到 bootstrap 工具链（1.24.13），新版核心全部编不过。
-rm -f feeds/packages.index
+# 元包（golang）按包名声明 host 依赖；实际目录名仍是 golang1.26，硬编码对齐
+sed -i 's|^HOST_BUILD_DEPENDS:=.*|HOST_BUILD_DEPENDS:=golang1.26/host|' \
+  feeds/packages/lang/golang/golang/Makefile
+grep -n "GO_VERSION_MAJOR_MINOR\|GO_DEFAULT_VERSION\|HOST_BUILD_DEPENDS" \
+  feeds/packages/lang/golang/golang1.26/Makefile feeds/packages/lang/golang/golang-values.mk \
+  feeds/packages/lang/golang/golang/Makefile | head -6
 
 echo ">> 删除 feeds 里落后的 passwall 核心组件（改用上游 main 分支）..."
 for pw_pkg in chinadns-ng dns2socks geoview hysteria ipt2socks microsocks naiveproxy \
