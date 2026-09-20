@@ -52,17 +52,6 @@ done < "$PACKAGE_CONF"
 if (( ${#missing[@]} > 0 )); then
   echo "make defconfig 后，下面这些请求的包没有被启用：" >&2
   printf '  - %s\n' "${missing[@]}" >&2
-  echo "各包在 .config 中的实际状态（诊断用）：" >&2
-  for pkg in "${missing[@]}"; do
-    state="$(grep -E "^#? ?CONFIG_PACKAGE_${pkg}(=|[ is])" "$CONFIG_FILE" | head -2 || true)"
-    if [ -n "$state" ]; then
-      printf '  %s -> %s\n' "$pkg" "$state" >&2
-    else
-      printf '  %s -> .config 中完全不存在（包未被 metadata 收录）\n' "$pkg" >&2
-    fi
-  done
-  echo "defconfig 输入侧检查（02_add_package 之后应有的行）：" >&2
-  grep -cE "^CONFIG_PACKAGE_(socat|xl2tpd|bind-host)=y" "$CONFIG_FILE" >&2 || true
   echo "请检查包名、ImmortalWrt 25.12 分支支持情况和依赖关系。" >&2
   exit 1
 fi

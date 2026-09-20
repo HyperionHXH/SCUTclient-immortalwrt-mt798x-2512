@@ -172,8 +172,6 @@ jobs:
           bash ../05_validate_profile.sh "$PROFILES"
           bash ../04_make_profile_config.sh "$PROFILES" .config
           bash ../02_add_package.sh
-          # 诊断：defconfig 前确认 package.conf 的行都写进了 .config
-          grep -E "^CONFIG_PACKAGE_(socat|xl2tpd|bind-host|luci-app-passwall)=y" .config || echo "警告：上述包在 defconfig 输入侧就缺失"
           make defconfig
           bash ../06_validate_target_config.sh "$PROFILES"
           bash ../03_validate_packages.sh
